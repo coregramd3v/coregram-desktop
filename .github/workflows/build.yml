@@ -35,7 +35,10 @@ jobs:
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
       - name: Package
         run: |
-          cd out/Release && strip CoreGram && tar czf ../../CoreGram-linux-x64.tar.gz CoreGram
+          sudo cp out/Release/CoreGram ./CoreGram
+          sudo chown "$(id -u):$(id -g)" ./CoreGram
+          strip ./CoreGram || true
+          tar czf CoreGram-linux-x64.tar.gz CoreGram
       - uses: actions/upload-artifact@v4
         with:
           name: CoreGram-linux-x64
@@ -62,7 +65,7 @@ jobs:
       - name: Prepare libraries
         working-directory: tdesktop
         shell: cmd
-        run: Telegram\build\prepare\win.bat skip-release
+        run: Telegram\build\prepare\win.bat
       - name: Configure
         working-directory: tdesktop\Telegram
         shell: cmd
