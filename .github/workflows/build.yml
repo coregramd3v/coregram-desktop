@@ -54,6 +54,15 @@ jobs:
           submodules: recursive
           fetch-depth: 1
           path: tdesktop
+      - name: Install VS ATL/MFC components
+        shell: pwsh
+        run: |
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $vs = & "$installer\vswhere.exe" -latest -property installationPath
+          Start-Process -Wait -FilePath "$installer\setup.exe" -ArgumentList `
+            "modify --installPath `"$vs`" --quiet --norestart --nocache " + `
+            "--add Microsoft.VisualStudio.Component.VC.ATL " + `
+            "--add Microsoft.VisualStudio.Component.VC.ATLMFC"
       - name: Setup MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
