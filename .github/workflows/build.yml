@@ -1,0 +1,67 @@
+name: CoreGram Desktop
+
+# Builds CoreGram (AyuGram fork) for Linux and Windows.
+# Linux uses the same centos_env docker image already verified locally.
+# Windows follows docs/building-win-x64.md on the VS2022 runner.
+#
+# Set these repo secrets before running (Settings -> Secrets -> Actions):
+#   TDESKTOP_API_ID    - your Telegram api_id
+#   TDESKTOP_API_HASH  - your Telegram api_hash
+# (defaults below are test-only; replace them.)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+env:
+  API_ID: ${{ secrets.TDESKTOP_API_ID || '2040' }}
+  API_HASH: ${{ secrets.TDESKTOP_API_HASH || 'b18441a1ff607e10a989891a5462e627' }}
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+      - name: Build (centos_env docker)
+        run: |
+          docker run --rm -u root -v "$PWD:/usr/src/tdesktop" -e CONFIG=Release \
+            ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
+            /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+            -D TDESKTOP_API_ID=$API_ID -D TDESKTOP_API_HASH=$API_HASH \
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
+      - name: Package
+        run: |
+          cd out/Release && strip CoreGram && tar czf ../../CoreGram-linux-x64.tar.gz CoreGram
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CoreGram-linux-x64
+          path: CoreGram-linux-x64.tar.gz
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          path: tdesktop
+      - name: Prepare libraries
+        working-directory: tdesktop
+        shell: cmd
+        run: Telegram\build\prepare\win.bat skip-release
+      - name: Configure
+        working-directory: tdesktop\Telegram
+        shell: cmd
+        run: configure.bat x64 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
+      - name: Build
+        working-directory: tdesktop
+        shell: cmd
+        run: cmake --build out --config Release --target Telegram
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CoreGram-win-x64
+          path: tdesktop/out/Release/CoreGram.exe
