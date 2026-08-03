@@ -45,7 +45,10 @@ jobs:
           path: CoreGram-linux-x64.tar.gz
 
   windows:
-    runs-on: windows-latest
+    # Pin to windows-2022 (VS2022 v17) — it ships the VC ATL/MFC components
+    # preinstalled, which breakpad needs (atlbase.h). windows-latest moved to a
+    # VS18/2026 image without ATL, breaking the libraries build.
+    runs-on: windows-2022
     env:
       Platform: x64
     steps:
@@ -54,34 +57,31 @@ jobs:
           submodules: recursive
           fetch-depth: 1
           path: tdesktop
-      - name: Install VS ATL/MFC components
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
-          $vs = & "$installer\vswhere.exe" -latest -property installationPath
-          $p = Start-Process -Wait -PassThru -FilePath "$installer\setup.exe" -ArgumentList `
-            "modify","--installPath","$vs","--quiet","--norestart","--nocache",`
-            "--add","Microsoft.VisualStudio.Component.VC.ATL",`
-            "--add","Microsoft.VisualStudio.Component.VC.ATLMFC"
-          Write-Host "installer exit: $($p.ExitCode)"
       - name: Setup MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-      - name: Add ATLMFC to INCLUDE/LIB
+      - name: Ensure ATL is available (breakpad needs atlbase.h)
         shell: pwsh
         run: |
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          $ver = Get-Content "$vs\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt"
-          $atl = "$vs\VC\Tools\MSVC\$ver\ATLMFC"
-          if (Test-Path "$atl\include") {
-            Add-Content $env:GITHUB_ENV "INCLUDE=$atl\include;$env:INCLUDE"
-            Add-Content $env:GITHUB_ENV "LIB=$atl\lib\x64;$env:LIB"
-            Write-Host "Added ATLMFC: $atl"
-          } else {
-            Write-Host "ATLMFC not found at $atl"
+          $ver = (Get-Content "$vs\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt").Trim()
+          $atl = "$vs\VC\Tools\MSVC\$ver\atlmfc"
+          if (-not (Test-Path "$atl\include\atlbase.h")) {
+            Write-Host "ATL missing at $atl — installing via VS Installer..."
+            $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+            $p = Start-Process -Wait -PassThru -FilePath "$installer\setup.exe" -ArgumentList `
+              "modify","--installPath","$vs","--quiet","--norestart","--nocache",`
+              "--add","Microsoft.VisualStudio.Component.VC.ATL",`
+              "--add","Microsoft.VisualStudio.Component.VC.ATLMFC"
+            Write-Host "installer exit: $($p.ExitCode)"
           }
+          if (-not (Test-Path "$atl\include\atlbase.h")) {
+            throw "atlbase.h still not found at $atl\include — cannot build breakpad"
+          }
+          Add-Content $env:GITHUB_ENV "INCLUDE=$atl\include;$env:INCLUDE"
+          Add-Content $env:GITHUB_ENV "LIB=$atl\lib\x64;$env:LIB"
+          Write-Host "ATL OK: $atl"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
