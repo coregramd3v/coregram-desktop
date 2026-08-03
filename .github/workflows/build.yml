@@ -57,32 +57,18 @@ jobs:
           submodules: recursive
           fetch-depth: 1
           path: tdesktop
-      - name: Install v14.40 toolset + ATL/MFC (libvpx breaks on MSVC 14.44)
-        shell: pwsh
-        run: |
-          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
-          $vs = & "$installer\vswhere.exe" -latest -property installationPath
-          $comps = "Microsoft.VisualStudio.Component.VC.14.40.17.10.x86.x64",
-                   "Microsoft.VisualStudio.Component.VC.14.40.17.10.ATL",
-                   "Microsoft.VisualStudio.Component.VC.14.40.17.10.MFC"
-          $a = @("modify","--installPath",$vs,"--quiet","--norestart","--nocache")
-          foreach ($c in $comps) { $a += "--add"; $a += $c }
-          $p = Start-Process -Wait -PassThru -FilePath "$installer\setup.exe" -ArgumentList $a
-          Write-Host "installer exit: $($p.ExitCode)"
-      - name: Setup MSVC developer environment (pin toolset 14.40)
+      - name: Setup MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: "14.40"
-      - name: Verify ATL for pinned toolset (breakpad needs atlbase.h)
+      - name: Ensure ATL is available (breakpad needs atlbase.h)
         shell: pwsh
         run: |
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          $ver = $env:VCToolsVersion
+          $ver = (Get-Content "$vs\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt").Trim()
           $atl = "$vs\VC\Tools\MSVC\$ver\atlmfc"
-          Write-Host "VCToolsVersion=$ver atl=$atl"
           if (-not (Test-Path "$atl\include\atlbase.h")) {
-            throw "atlbase.h not found at $atl\include — ATL for $ver missing"
+            throw "atlbase.h not found at $atl\include — cannot build breakpad"
           }
           Add-Content $env:GITHUB_ENV "INCLUDE=$atl\include;$env:INCLUDE"
           Add-Content $env:GITHUB_ENV "LIB=$atl\lib\x64;$env:LIB"
