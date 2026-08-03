@@ -86,10 +86,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Cache built libraries
+        id: libcache
+        uses: actions/cache@v4
+        with:
+          path: Libraries
+          key: win-x64-libs-${{ hashFiles('tdesktop/Telegram/build/prepare/prepare.py', 'tdesktop/Telegram/build/prepare/win.bat') }}
       - name: Prepare libraries
+        if: steps.libcache.outputs.cache-hit != 'true'
         working-directory: tdesktop
         shell: cmd
         run: Telegram\build\prepare\win.bat
+      - name: Upload prebuilt libraries (for local builds)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoreGram-win-x64-Libraries
+          path: Libraries
+          retention-days: 5
+          if-no-files-found: warn
       - name: Configure
         working-directory: tdesktop\Telegram
         shell: cmd
