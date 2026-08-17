@@ -87,7 +87,12 @@ jobs:
         if: steps.libcache.outputs.cache-hit != 'true'
         working-directory: tdesktop
         shell: cmd
-        run: Telegram\build\prepare\win.bat
+        # libvpx собирает ассемблерные объекты параллельно и иногда роняет
+        # линковку сам себе (LNK1136 / make Error 2 без единой ошибки
+        # компиляции). Сборка инкрементальная, поэтому повтор продолжает с того
+        # места, где упало, и со второй попытки обычно проходит.
+        run: |
+          call Telegram\build\prepare\win.bat || call Telegram\build\prepare\win.bat || call Telegram\build\prepare\win.bat
       - name: Upload prebuilt libraries (for local builds)
         uses: actions/upload-artifact@v4
         with:
