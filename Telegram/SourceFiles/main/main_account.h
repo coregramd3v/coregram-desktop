@@ -83,6 +83,8 @@ public:
 	}
 	[[nodiscard]] rpl::producer<not_null<MTP::Instance*>> mtpValue() const;
 
+	void resetAuthorizationKeysForServerSwitch();
+
 	// Each time the main session changes a new copy of the pointer is fired.
 	// This allows to resend the requests that were not requiring auth, and
 	// which could be forgotten without calling .done() or .fail() because

@@ -309,6 +309,28 @@ void InnerWidget::load() {
 
 	_showFinished.events(
 	) | rpl::take(1) | rpl::on_next([=] {
+		const auto requestCredits = [=] {
+			state->apiCredits.request(
+			) | rpl::on_error_done([=](const QString &error) {
+				if (canViewCredits) {
+					fail(error);
+				} else {
+					_state.creditsEarn = {};
+				}
+				finish();
+			}, [=] {
+				_state.creditsEarn = state->apiCredits.data();
+				finish();
+			}, state->apiCreditsLifetime);
+		};
+		// The credits request used to sit INSIDE the premium-bot callback, so the
+		// whole screen waited for that bot to resolve. PremiumPeerBot returns
+		// rpl::never when the server publishes no premium_bot_username, and its
+		// resolve request has no fail handler either — on a self-hosted server
+		// both cases meant the callback never fired, finish() never ran and the
+		// section span forever on its loading placeholder with no history shown.
+		// The bot id is only stored for later, so resolve it alongside instead of
+		// in front of the data the screen actually needs.
 		const auto nextRequests = [=] {
 			state->apiCreditsHistory.request({}, [=](
 					const Data::CreditsStatusSlice &data) {
@@ -317,20 +339,9 @@ void InnerWidget::load() {
 					&_peer->session()
 				) | rpl::on_next([=](not_null<PeerData*> bot) {
 					_state.premiumBotId = bot->id;
-					state->apiCredits.request(
-					) | rpl::on_error_done([=](const QString &error) {
-						if (canViewCredits) {
-							fail(error);
-						} else {
-							_state.creditsEarn = {};
-						}
-						finish();
-					}, [=] {
-						_state.creditsEarn = state->apiCredits.data();
-						finish();
-					}, state->apiCreditsLifetime);
 					state->apiPremiumBotLifetime.destroy();
 				}, state->apiPremiumBotLifetime);
+				requestCredits();
 			});
 		};
 		const auto isMegagroup = _peer->isMegagroup();

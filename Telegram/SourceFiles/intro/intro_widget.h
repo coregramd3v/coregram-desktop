@@ -94,6 +94,7 @@ class Step;
 enum class EnterPoint : uchar {
 	Phone,
 	Qr,
+	ServerSelect,
 };
 
 class Widget

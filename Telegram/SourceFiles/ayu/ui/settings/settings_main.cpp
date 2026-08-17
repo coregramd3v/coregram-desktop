@@ -10,6 +10,7 @@
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/ui/ayu_logo.h"
+#include "coregram/coregram_visual.h"
 #include "ayu/ui/settings/settings_appearance.h"
 #include "ayu/ui/settings/settings_ayu.h"
 #include "ayu/ui/settings/settings_chats.h"
@@ -70,7 +71,7 @@ void BuildVersionInfo(SectionBuilder &builder) {
 			.widget = object_ptr<Ui::FlatLabel>(
 				ctx.container,
 				rpl::single(
-					QString("AyuGram Desktop v")
+					QString("CoreGram Desktop v")
 					+ QString::fromLatin1(AppVersionStr)),
 				st::boxTitle),
 			.align = style::al_top,
@@ -101,7 +102,7 @@ void BuildCategories(SectionBuilder &builder) {
 	builder.addSubsectionTitle(tr::ayu_CategoriesHeader());
 
 	builder.addSectionButton({
-		.title = rpl::single(QString("AyuGram")),
+		.title = rpl::single(QString("CoreGram")),
 		.targetSection = AyuGhost::Id(),
 		.icon = { &st::menuIconGroupReactions },
 	});
@@ -130,6 +131,40 @@ void BuildCategories(SectionBuilder &builder) {
 		.targetSection = AyuOther::Id(),
 		.icon = { &st::menuIconFave },
 	});
+
+	const auto controller = builder.controller();
+	builder.addButton({
+		.id = u"coregram/market"_q,
+		.title = rpl::single(QString("CoreGram Маркет")),
+		.icon = { &st::menuIconPremium },
+		.onClick = [=] {
+			CoreGram::ShowMarketBox(controller);
+		},
+	});
+	builder.addButton({
+		.id = u"coregram/search"_q,
+		.title = rpl::single(QString("Поиск в CoreGram")),
+		.icon = { &st::menuIconSearch },
+		.onClick = [=] {
+			CoreGram::ShowSearchBox(controller);
+		},
+	});
+	builder.addButton({
+		.id = u"coregram/assistant"_q,
+		.title = rpl::single(QString("ИИ-помощник")),
+		.icon = { &st::menuIconBot },
+		.onClick = [=] {
+			CoreGram::ShowAssistantBox(controller);
+		},
+	});
+	builder.addButton({
+		.id = u"coregram/wallet"_q,
+		.title = rpl::single(QString("CoreCrypto кошелёк")),
+		.icon = { &st::menuIconPayment },
+		.onClick = [=] {
+			CoreGram::ShowWalletBox(controller);
+		},
+	});
 }
 
 void BuildLinks(SectionBuilder &builder) {
@@ -145,10 +180,10 @@ void BuildLinks(SectionBuilder &builder) {
 		.id = u"ayu/channel"_q,
 		.title = tr::ayu_LinksChannel(),
 		.icon = { &st::menuIconChannel },
-		.label = rpl::single(QString("@ayugram")),
+		.label = rpl::single(QString("@coregramm")),
 		.onClick = [=] {
 			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("ayugram"),
+				.usernameOrId = QString("coregramm"),
 			});
 		},
 	});
@@ -156,32 +191,20 @@ void BuildLinks(SectionBuilder &builder) {
 		.id = u"ayu/chat"_q,
 		.title = tr::ayu_LinksChats(),
 		.icon = { &st::menuIconChats },
-		.label = rpl::single(QString("@ayugramchat")),
-		.onClick = [=] {
-			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("ayugramchat"),
-			});
-		},
+		// Чата сообщества ещё нет — не ведём людей в чужой AyuGram-чат.
+		.label = rpl::single(QString("\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0435")),
 	});
 	builder.addButton({
 		.id = u"ayu/crowdin"_q,
 		.title = tr::ayu_LinksTranslate(),
 		.icon = { &st::menuIconTranslate },
-		.label = rpl::single(QString("Crowdin")),
-		.onClick = [=] {
-			QDesktopServices::openUrl(
-				QString("https://translate.ayugram.one"));
-		},
+		.label = rpl::single(QString("\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0435")),
 	});
 	builder.addButton({
 		.id = u"ayu/website"_q,
 		.title = tr::ayu_LinksDocumentation(),
 		.icon = { &st::menuIconIpAddress },
-		.label = rpl::single(QString("docs.ayugram.one")),
-		.onClick = [=] {
-			QDesktopServices::openUrl(
-				QString("https://docs.ayugram.one"));
-		},
+		.label = rpl::single(QString("\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0435")),
 	});
 
 	builder.addSkip();

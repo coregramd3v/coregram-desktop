@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "storage/details/storage_file_utilities.h"
 #include "storage/serialize_common.h"
+#include "storage/storage_account.h"
 #include "mtproto/mtproto_config.h"
 #include "main/main_domain.h"
 #include "main/main_account.h"
@@ -160,7 +161,7 @@ Domain::StartModernResult Domain::startModern(
 	LOG(("App Info: reading encrypted info..."));
 	auto count = qint32();
 	info.stream >> count;
-	if (count <= 0 || count > Main::Domain::kPremiumMaxAccounts) {
+	if (count <= 0 || count > Main::Domain::kMaxTotalAccounts) {
 		LOG(("App Error: bad accounts count: %1").arg(count));
 		return StartModernResult::Failed;
 	}
@@ -168,13 +169,15 @@ Domain::StartModernResult Domain::startModern(
 	_oldVersion = keyData.version;
 
 	auto tried = base::flat_set<int>();
-	auto sessions = base::flat_set<uint64>();
+	// Key: (sessionId, serverId) — same userId on different servers is NOT a duplicate.
+	using SessionKey = std::pair<uint64, QString>;
+	auto sessions = base::flat_set<SessionKey>();
 	auto active = 0;
 	for (auto i = 0; i != count; ++i) {
 		auto index = qint32();
 		info.stream >> index;
 		if (index >= 0
-			&& index < Main::Domain::kPremiumMaxAccounts
+			&& index < Main::Domain::kMaxTotalAccounts
 			&& tried.emplace(index).second) {
 			auto account = std::make_unique<Main::Account>(
 				_owner,
@@ -183,7 +186,18 @@ Domain::StartModernResult Domain::startModern(
 			auto config = account->prepareToStart(_localKey);
 			const auto sessionId = account->willHaveSessionUniqueId(
 				config.get());
-			if (!sessions.contains(sessionId)
+			const auto serverSel = account->local().readCoreServer();
+			// Identify the server by its real endpoint, not just the profile
+			// id: two CoreGram instances can both use id "coregram" while
+			// pointing at different hosts (local vs VPS). Same userId on a
+			// different endpoint is NOT a duplicate.
+			const auto serverId = serverSel
+				? (serverSel->id
+					+ u"|"_q + serverSel->host.toLower()
+					+ u":"_q + QString::number(serverSel->port))
+				: QString();
+			const auto key = SessionKey(sessionId, serverId);
+			if (!sessions.contains(key)
 				&& (sessionId != 0 || (sessions.empty() && i + 1 == count))) {
 				if (sessions.empty()) {
 					active = index;
@@ -193,7 +207,7 @@ Domain::StartModernResult Domain::startModern(
 					.index = index,
 					.account = std::move(account)
 				});
-				sessions.emplace(sessionId);
+				sessions.emplace(key);
 			}
 		}
 	}

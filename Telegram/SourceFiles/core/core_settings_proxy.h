@@ -75,6 +75,7 @@ public:
 
 private:
 	void ensureDefaultProxy();
+	void ensureCoreGramServerProxy();
 
 	bool _tryIPv6 = false;
 	bool _useProxyForCalls = false;

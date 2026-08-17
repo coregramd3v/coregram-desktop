@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/passcode_box.h"
 #include "data/data_channel.h"
 #include "data/data_session.h"
+#include "data/components/credits.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
 #include "ui/basic_click_handlers.h"
@@ -139,6 +140,9 @@ void HandleWithdrawalButton(
 		};
 		if (currencyReceiver || creditsReceiver) {
 			using F = MTPpayments_getStarsRevenueWithdrawalUrl::Flag;
+			const auto amount = creditsReceiver
+				? receiver.creditsAmount()
+				: uint64();
 			session->api().request(
 				MTPpayments_GetStarsRevenueWithdrawalUrl(
 					MTP_flags(currencyReceiver
@@ -147,11 +151,32 @@ void HandleWithdrawalButton(
 					currencyReceiver
 						? currencyReceiver->input()
 						: creditsReceiver->input(),
-					MTP_long(creditsReceiver
-						? receiver.creditsAmount()
-						: 0),
+					MTP_long(amount),
 					MTP_inputCheckPasswordEmpty()
-			)).fail(fail).send();
+			)).done([=](const CreditsOutUrl &) {
+				// Upstream this first request exists only to learn the SRP
+				// parameters from the error it always gets: Telegram never lets
+				// a withdrawal through without 2FA, so there is no success
+				// branch there. Our server does let it through — it accepts an
+				// empty password check from an account with no cloud password
+				// and moves the stars right away — and with no handler for that
+				// answer the button looked completely dead. Confirm it and fix
+				// the balances locally instead of opening the returned URL,
+				// which is meaningless for an internal transfer.
+				state->loading = false;
+				show->showToast(tr::lng_coregram_stars_withdrawn(tr::now));
+				session->credits().load(true);
+				if (creditsReceiver) {
+					const auto peerId = creditsReceiver->id;
+					const auto taken = CreditsAmount(int64(amount));
+					const auto was = session->credits().balance(peerId);
+					session->credits().apply(
+						peerId,
+						(!taken || taken >= was)
+							? CreditsAmount()
+							: (was - taken));
+				}
+			}).fail(fail).send();
 		}
 	});
 }

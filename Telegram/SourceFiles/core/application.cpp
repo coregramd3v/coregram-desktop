@@ -61,6 +61,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "media/view/media_view_open_common.h"
 #include "mtproto/mtproto_dc_options.h"
 #include "mtproto/mtproto_config.h"
+#include "mtproto/mtp_instance.h"
 #include "media/audio/media_audio_track.h"
 #include "media/player/media_player_instance.h"
 #include "media/player/media_player_float.h"
@@ -357,20 +358,30 @@ void Application::run() {
 	) | rpl::then(
 		_domain->accountsChanges()
 	) | rpl::map([=] {
-		return (_domain->accounts().size() > Main::Domain::kMaxAccounts)
+		// Only Telegram accounts count toward the limit nag.
+		return (_domain->telegramAccountsCount() > Main::Domain::kMaxAccounts)
 			? _domain->activeChanges()
 			: rpl::never<not_null<Main::Account*>>();
 	}) | rpl::flatten_latest(
 	) | rpl::on_next([=](not_null<Main::Account*> account) {
-		const auto ordered = _domain->orderedAccounts();
-		const auto it = ranges::find(ordered, account);
-		if (_lastActivePrimaryWindow && it != end(ordered)) {
-			const auto index = std::distance(begin(ordered), it);
-			if ((index + 1) > _domain->maxAccounts()) {
-				_lastActivePrimaryWindow->show(Box(
-					AccountsLimitBox,
-					&account->session()));
+		if (!_lastActivePrimaryWindow
+			|| !Main::Domain::AccountIsTelegram(account)) {
+			return;
+		}
+		// Rank of this account among Telegram accounts (custom servers skipped).
+		auto telegramRank = 0;
+		for (const auto &one : _domain->orderedAccounts()) {
+			if (Main::Domain::AccountIsTelegram(one)) {
+				++telegramRank;
 			}
+			if (one == account) {
+				break;
+			}
+		}
+		if (telegramRank > _domain->maxAccounts()) {
+			_lastActivePrimaryWindow->show(Box(
+				AccountsLimitBox,
+				&account->session()));
 		}
 	}, _lifetime);
 
@@ -1170,21 +1181,206 @@ void Application::checkStartUrls() {
 
 bool Application::openLocalUrl(const QString &url, QVariant context) {
 	const auto urlTrimmed = url.trimmed();
-	const auto protocol = u"tg://"_q;
-	if (urlTrimmed.startsWith(protocol, Qt::CaseInsensitive)
-		&& !passcodeLocked()) {
-		const auto command = urlTrimmed.mid(protocol.size());
+
+	// cgrm://oauth?token=... and cgrm://resolve?domain=oauth&startapp=... are
+	// command-style links (mirroring tg://oauth / tg://resolve), not the
+	// cgrm://<server-host>/<rest> invite/username form below — they carry no
+	// "/" after the host, so openCoreGramUrl's host-based routing would just
+	// drop them (slash <= 0). Convert to the equivalent tg:// command and
+	// dispatch it directly on the current session, same as
+	// openCoreGramUrl does for host-routed links, bypassing the
+	// Telegram-only guard further below (this must work on CoreGram
+	// accounts too).
+	static const auto kCoreCommandRe = QRegularExpression(
+		u"^cgrm://(oauth|resolve)(\\?.*)?$"_q,
+		QRegularExpression::CaseInsensitiveOption);
+	if (const auto m = kCoreCommandRe.match(urlTrimmed);
+			m.hasMatch() && !passcodeLocked()) {
 		const auto my = context.value<ClickHandlerContext>();
 		const auto controller = my.sessionWindow.get()
 			? my.sessionWindow.get()
-			: _lastActivePrimaryWindow
-			? _lastActivePrimaryWindow->sessionController()
-			: nullptr;
+			: (_lastActivePrimaryWindow
+				? _lastActivePrimaryWindow->sessionController()
+				: nullptr);
+		if (!controller) {
+			return false;
+		}
+		const auto tgUrl = u"tg://"_q + m.captured(1) + m.captured(2);
+		auto tgCtx = my;
+		tgCtx.sessionWindow = base::make_weak(controller);
+		const auto tgContext = QVariant::fromValue(tgCtx);
+		const auto command = tgUrl.mid(u"tg://"_q.size());
 		if (TryRouterForLocalUrl(controller, command)) {
 			return true;
 		}
+		return openCustomUrl("tg://", LocalUrlHandlers(), tgUrl, tgContext);
+	}
+
+	// CoreGram self-hosted links (cgrm://<host>/<rest>) are routed to the matching
+	// server account and handled with the standard tg:// handlers.
+	if (urlTrimmed.startsWith(u"cgrm://"_q, Qt::CaseInsensitive)
+		&& !passcodeLocked()) {
+		return openCoreGramUrl(urlTrimmed, context);
+	}
+
+	const auto protocol = u"tg://"_q;
+	if (urlTrimmed.startsWith(protocol, Qt::CaseInsensitive)
+		&& !passcodeLocked()) {
+
+		// tg:// and t.me links open on the account the click came from.
+		//
+		// There used to be a guard here that refused such links unless a
+		// Telegram account was logged in. It made sense while t.me belonged
+		// to the official network only — but a CoreGram server hands out t.me
+		// links of its own (invites, gifts, collectible usernames), and the
+		// guard turned every one of them into "This link is for Telegram's
+		// official network", with no way to open our own links at all.
+		//
+		// Routing by context is what multi-account tdesktop does everywhere
+		// else: the link belongs to the session it was clicked in, and an
+		// external link goes to the active one.
+		const auto my = context.value<ClickHandlerContext>();
+		const auto contextCtrl = my.sessionWindow.get();
+		const auto controller = contextCtrl
+			? contextCtrl
+			: (_lastActivePrimaryWindow
+				? _lastActivePrimaryWindow->sessionController()
+				: nullptr);
+
+		if (!controller) {
+			return false;
+		}
+
+		ClickHandlerContext tgCtx = my;
+		tgCtx.sessionWindow = base::make_weak(controller);
+		const auto tgContext = QVariant::fromValue(tgCtx);
+
+		const auto command = urlTrimmed.mid(protocol.size());
+		if (TryRouterForLocalUrl(controller, command)) {
+			return true;
+		}
+		return openCustomUrl("tg://", LocalUrlHandlers(), url, tgContext);
 	}
 	return openCustomUrl("tg://", LocalUrlHandlers(), url, context);
+}
+
+bool Application::openCoreGramUrl(const QString &url, QVariant context) {
+	// cgrm://<host>/<rest> — <host> is the server link host (me_url_prefix), <rest>
+	// is the usual t.me path (+invite, username, ...). Route to the matching server
+	// account and reuse the standard tg:// handlers (no official-Telegram guard).
+	const auto protocol = u"cgrm://"_q;
+	const auto body = url.mid(protocol.size());
+	const auto slash = body.indexOf('/');
+	if (slash <= 0) {
+		return false;
+	}
+	const auto host = body.left(slash);
+	const auto rest = body.mid(slash + 1);
+	if (rest.isEmpty()) {
+		return false;
+	}
+
+	const auto hostOf = [](not_null<Main::Account*> account) {
+		auto domain = account->mtp().configValues().internalLinksDomain;
+		static const auto kScheme = QRegularExpression(u"^https?://"_q);
+		domain.remove(kScheme);
+		while (domain.endsWith('/')) {
+			domain.chop(1);
+		}
+		return domain;
+	};
+
+	const auto my = context.value<ClickHandlerContext>();
+	const auto activeController = my.sessionWindow.get()
+		? my.sessionWindow.get()
+		: (_lastActivePrimaryWindow
+			? _lastActivePrimaryWindow->sessionController()
+			: nullptr);
+
+	// Find a logged-in account on the link's server: the ACTIVE one if it matches,
+	// otherwise any other account (we switch to it below). This way a cgrm:// link
+	// opens on the right account even when a different account is currently active.
+	const auto matchesHost = [&](not_null<Main::Account*> account) {
+		return account->sessionExists()
+			&& hostOf(account).compare(host, Qt::CaseInsensitive) == 0;
+	};
+	Main::Account *target = nullptr;
+	if (activeController
+		&& matchesHost(&activeController->session().account())) {
+		target = &activeController->session().account();
+	} else {
+		for (const auto &account : _domain->orderedAccounts()) {
+			if (matchesHost(account)) {
+				target = account;
+				break;
+			}
+		}
+	}
+
+	// No logged-in account is on this server.
+	if (!target) {
+		if (_lastActivePrimaryWindow) {
+			_lastActivePrimaryWindow->activate();
+			_lastActivePrimaryWindow->show(Ui::MakeInformBox(
+				tr::lng_coregram_link_other_server(tr::now) + u"\n"_q + host));
+		}
+		return true;
+	}
+
+	// Run the link as a tg:// command on the target account's controller, reusing the
+	// standard handlers (no official-Telegram guard).
+	const auto dispatch = [=, this](Window::SessionController *controller) {
+		if (!controller) {
+			return;
+		}
+		const auto tgUrl = Core::TryConvertUrlToLocal(u"https://t.me/"_q + rest);
+		if (!tgUrl.startsWith(u"tg://"_q, Qt::CaseInsensitive)) {
+			return;
+		}
+		auto tgCtx = my;
+		tgCtx.sessionWindow = base::make_weak(controller);
+		const auto tgContext = QVariant::fromValue(tgCtx);
+		const auto command = tgUrl.mid(u"tg://"_q.size());
+		if (!TryRouterForLocalUrl(controller, command)) {
+			openCustomUrl("tg://", LocalUrlHandlers(), tgUrl, tgContext);
+		}
+	};
+
+	// Already on the target account: open right away.
+	if (activeController && target == &activeController->session().account()) {
+		dispatch(activeController);
+		return true;
+	}
+
+	// The link belongs to a DIFFERENT logged-in account. Switching the active account
+	// (which may rebuild windows / show a connecting box) must NOT happen inside this
+	// click handler, or it can use-after-free the window the click came from and crash.
+	// Defer it so the current stack unwinds first, then switch and open. The account is
+	// re-resolved by host inside the deferred call (it may have changed meanwhile).
+	InvokeQueued(this, [=, this] {
+		Main::Account *account = nullptr;
+		for (const auto &a : _domain->orderedAccounts()) {
+			if (a->sessionExists()
+				&& hostOf(a).compare(host, Qt::CaseInsensitive) == 0) {
+				account = a;
+				break;
+			}
+		}
+		if (!account) {
+			return;
+		}
+		Window::SessionController *controller = nullptr;
+		if (const auto window = windowFor({ not_null<Main::Account*>(account) })) {
+			if (&window->account() != account) {
+				_domain->maybeActivate(account);
+			}
+			if (&window->account() == account) {
+				controller = window->sessionController();
+			}
+		}
+		dispatch(controller);
+	});
+	return true;
 }
 
 bool Application::openInternalUrl(const QString &url, QVariant context) {
@@ -1901,7 +2097,7 @@ void Application::RegisterUrlScheme() {
 		.arguments = arguments,
 		.protocol = u"tg"_q,
 		.protocolName = u"Telegram Link"_q,
-		.shortAppName = u"AyuGram"_q,
+		.shortAppName = u"CoreGram"_q,
 		.longAppName = QCoreApplication::applicationName(),
 		.displayAppName = AppName.utf16(),
 		.displayAppDescription = AppName.utf16(),
@@ -1912,6 +2108,20 @@ void Application::RegisterUrlScheme() {
 		.arguments = arguments,
 		.protocol = u"tonsite"_q,
 		.protocolName = u"TonSite Link"_q,
+		.shortAppName = u"tdesktop"_q,
+		.longAppName = QCoreApplication::applicationName(),
+		.displayAppName = AppName.utf16(),
+		.displayAppDescription = AppName.utf16(),
+	});
+
+	// CoreGram self-hosted link scheme, registered in the OS alongside tg:// so
+	// cgrm://<host>/<rest> links open the app from anywhere (any prefix host, no
+	// per-host config). Dispatched by openLocalUrl -> openCoreGramUrl.
+	base::Platform::RegisterUrlScheme(base::Platform::UrlSchemeDescriptor{
+		.executable = Platform::ExecutablePathForShortcuts(),
+		.arguments = arguments,
+		.protocol = u"cgrm"_q,
+		.protocolName = u"CoreGram Link"_q,
 		.shortAppName = u"tdesktop"_q,
 		.longAppName = QCoreApplication::applicationName(),
 		.displayAppName = AppName.utf16(),

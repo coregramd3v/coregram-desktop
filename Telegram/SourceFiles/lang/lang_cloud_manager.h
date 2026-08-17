@@ -57,7 +57,12 @@ private:
 	mtpRequestId &packRequestId(Pack pack);
 	mtpRequestId packRequestId(Pack pack) const;
 	Pack packTypeFromId(const QString &id) const;
-	void requestLangPackDifference(Pack pack);
+	// force=true ignores the locally cached version and always does a full
+	// langpack.getLangPack pull instead of a langpack.getDifference: used
+	// when the active account's server itself changed, since the cached
+	// version number came from whichever server supplied it previously and
+	// isn't meaningful for a different backend.
+	void requestLangPackDifference(Pack pack, bool force = false);
 	bool canApplyWithoutRestart(const QString &id) const;
 	void performSwitchToCustom();
 	void performSwitch(const Language &data);
@@ -78,6 +83,11 @@ private:
 	void resendRequests();
 
 	std::optional<MTP::Sender> _api;
+	// Tracks which self-hosted server (CoreGram::ServerScopeKeyForAccount,
+	// empty for official Telegram) last supplied the applied langpack, so a
+	// switch to an account on a different server forces a fresh full pull
+	// instead of trusting a version number that belonged to another backend.
+	std::optional<QString> _lastServerScope;
 	Instance &_langpack;
 	Languages _languages;
 	mtpRequestId _langPackRequestId = 0;

@@ -31,8 +31,14 @@ public:
 		std::unique_ptr<Account> account;
 	};
 
-	static constexpr auto kMaxAccounts = 100;
-	static constexpr auto kPremiumMaxAccounts = 200;
+	// CoreGram: безлимит аккаунтов. Держим конечным (Expects в add() требует
+	// _accounts.size() < kPremiumMaxAccounts), но недостижимо большим для человека.
+	static constexpr auto kMaxAccounts = 1000;
+	static constexpr auto kPremiumMaxAccounts = 1000;
+	// Hard cap on the total number of accounts of any server. Custom self-hosted
+	// accounts don't count toward the Telegram free/premium limit, so the overall
+	// cap is separate from the Telegram-only kPremiumMaxAccounts.
+	static constexpr auto kMaxTotalAccounts = 1000;
 
 	explicit Domain(const QString &dataName);
 	~Domain();
@@ -56,6 +62,10 @@ public:
 	[[nodiscard]] rpl::producer<> accountsChanges() const;
 	[[nodiscard]] Account *maybeLastOrSomeAuthedAccount();
 	[[nodiscard]] int accountsAuthedCount() const;
+	// Authorized accounts on the official Telegram server (custom self-hosted
+	// servers are excluded). This is the count the Telegram limit applies to.
+	[[nodiscard]] int telegramAccountsCount() const;
+	[[nodiscard]] static bool AccountIsTelegram(not_null<Account*> account);
 
 	// Expects(started());
 	[[nodiscard]] Account &active() const;
@@ -81,6 +91,10 @@ public:
 
 private:
 	void activateAfterStarting();
+	// Blocks input with a modal while a freshly-activated account connects to its
+	// server; on timeout switches to a working account (Telegram if available).
+	void guardServerConnection(not_null<Main::Account*> account);
+	void switchToFallbackAccount(not_null<Main::Account*> failed);
 	void closeAccountWindows(not_null<Main::Account*> account);
 	bool removePasscodeIfEmpty();
 	void removeRedundantAccounts();

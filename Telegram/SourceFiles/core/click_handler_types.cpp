@@ -247,6 +247,7 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
 		UrlClickHandler::Open(url, context);
 	};
 	if (url.startsWith(u"tg://"_q, Qt::CaseInsensitive)
+		|| url.startsWith(u"cgrm://"_q, Qt::CaseInsensitive)
 		|| url.startsWith(u"internal:"_q, Qt::CaseInsensitive)) {
 		UrlClickHandler::Open(url, QVariant::fromValue([&] {
 			auto result = context.value<ClickHandlerContext>();
@@ -350,7 +351,9 @@ void BotGameUrlClickHandler::onClick(ClickContext context) const {
 		: nullptr;
 	const auto media = item ? item->media() : nullptr;
 	const auto game = media ? media->game() : nullptr;
-	if (url.startsWith(u"tg://"_q, Qt::CaseInsensitive) || !_bot || !game) {
+	if (url.startsWith(u"tg://"_q, Qt::CaseInsensitive)
+		|| url.startsWith(u"cgrm://"_q, Qt::CaseInsensitive)
+		|| !_bot || !game) {
 		openLink();
 		return;
 	}
