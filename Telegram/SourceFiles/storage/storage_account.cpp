@@ -40,6 +40,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "webview/webview_interface.h"
 #include "window/themes/window_theme.h"
 
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QFileInfo>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+
 namespace Storage {
 namespace {
 
@@ -275,6 +281,9 @@ base::flat_set<QString> Account::collectGoodNames() const {
 		"map1",
 		"maps",
 		"configs",
+		"coregram_server0",
+		"coregram_server1",
+		"coregram_servers",
 	};
 	const auto push = [&](FileKey key) {
 		if (!key) {
@@ -1210,6 +1219,91 @@ std::unique_ptr<MTP::Config> Account::readMtpConfig() {
 		return nullptr;
 	}
 	return MTP::Config::FromSerialized(serialized);
+}
+
+void Account::writeCoreServer(
+		const QString &id,
+		const QString &host,
+		int port) {
+	writeCoreServerFallback(id, host, port);
+	if (!_localKey) {
+		return;
+	}
+	const auto size = Serialize::stringSize(id)
+		+ Serialize::stringSize(host)
+		+ sizeof(qint32);
+	FileWriteDescriptor file(u"coregram_server"_q, _basePath, true);
+	EncryptedDescriptor data(size);
+	data.stream << id << host << qint32(port);
+	file.writeEncrypted(data, _localKey);
+}
+
+QString Account::coreServerFallbackPath() const {
+	return _basePath + u"coregram_server.json"_q;
+}
+
+void Account::writeCoreServerFallback(
+		const QString &id,
+		const QString &host,
+		int port) {
+	const auto path = coreServerFallbackPath();
+	QDir().mkpath(QFileInfo(path).absolutePath());
+	QFile file(path);
+	if (!file.open(QIODevice::WriteOnly)) {
+		return;
+	}
+	auto object = QJsonObject();
+	object.insert(u"id"_q, id);
+	object.insert(u"host"_q, host);
+	object.insert(u"port"_q, port);
+	file.write(QJsonDocument(object).toJson(QJsonDocument::Compact));
+}
+
+std::optional<CoreServerSelection>
+Account::readCoreServerFallback() const {
+	QFile file(coreServerFallbackPath());
+	if (!file.open(QIODevice::ReadOnly)) {
+		return std::nullopt;
+	}
+	const auto document = QJsonDocument::fromJson(file.readAll());
+	if (!document.isObject()) {
+		return std::nullopt;
+	}
+	const auto object = document.object();
+	const auto id = object.value(u"id"_q).toString();
+	const auto host = object.value(u"host"_q).toString();
+	const auto port = object.value(u"port"_q).toInt();
+	if (id.isEmpty() || host.isEmpty() || port <= 0) {
+		return std::nullopt;
+	}
+	return CoreServerSelection{
+		.id = id,
+		.host = host,
+		.port = port,
+	};
+}
+
+std::optional<CoreServerSelection> Account::readCoreServer() const {
+	if (_localKey) {
+		FileReadDescriptor file;
+		if (ReadEncryptedFile(file, "coregram_server", _basePath, _localKey)) {
+			auto id = QString();
+			auto host = QString();
+			auto port = qint32(0);
+			file.stream >> id >> host >> port;
+			if (CheckStreamStatus(file.stream)
+				&& !id.isEmpty()
+				&& !host.isEmpty()
+				&& port > 0) {
+				return CoreServerSelection{
+					.id = id,
+					.host = host,
+					.port = int(port),
+				};
+			}
+		}
+	}
+	return readCoreServerFallback();
 }
 
 template <typename Callback>

@@ -201,3 +201,150 @@ introQrStepMargins: margins(20px, 8px, 0px, 0px);
 introQrSkipTop: 360px;
 introQrCenterSize: 44px;
 introQrPlane: icon {{ "intro_qr_plane", activeButtonFg }};
+
+introServerListMaxWidth: 560px;
+introServerListMinWidth: 340px;
+introServerListTop: 12px;
+introServerListBottom: 20px;
+introServerListMinHeight: 80px;
+introServerListPanelRadius: 12px;
+introServerListPanelPadding: margins(10px, 10px, 10px, 10px);
+introServerRowHeight: 68px;
+introServerRowPadding: margins(12px, 10px, 12px, 10px);
+introServerRowRadius: 10px;
+introServerRowSpacing: 6px;
+introServerRowAvatarSize: 42px;
+introServerRowAvatarSkip: 12px;
+introServerRowStatusWidth: 80px;
+introServerRowStatusDot: 7px;
+introServerRowStatusDotSkip: 5px;
+introServerRowJoinSkip: 8px;
+introServerRowName: FlatLabel(defaultFlatLabel) {
+	textFg: windowFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(14px semibold);
+	}
+}
+introServerRowEndpoint: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(12px);
+	}
+}
+introServerRowStatus: FlatLabel(defaultFlatLabel) {
+	textFg: windowActiveTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(12px semibold);
+	}
+}
+introServerRowLatency: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(11px);
+	}
+}
+introServerOfficialBadge: FlatLabel(defaultFlatLabel) {
+	textFg: windowActiveTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(10px semibold);
+	}
+}
+introServerRowJoinButton: RoundButton(defaultActiveButton) {
+	width: 64px;
+	height: 32px;
+	radius: 8px;
+	textTop: 7px;
+	style: TextStyle(semiboldTextStyle) {
+		font: font(12px semibold);
+	}
+}
+introServerAddButton: RoundButton(defaultLightButton) {
+	height: 32px;
+	radius: 6px;
+	textTop: 7px;
+	style: TextStyle(semiboldTextStyle) {
+		font: font(13px semibold);
+	}
+}
+introServerCardLogo: 44px;
+introServerCardStatusDot: 8px;
+introServerCardStatusDotSkip: 5px;
+introServerCardName: FlatLabel(defaultFlatLabel) {
+	textFg: windowFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(14px semibold);
+	}
+}
+introServerCardStatusOnline: FlatLabel(defaultFlatLabel) {
+	textFg: windowActiveTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(12px semibold);
+	}
+}
+introServerCardStatusOffline: FlatLabel(introServerCardStatusOnline) {
+	textFg: attentionButtonFg;
+}
+introServerCardStatusLatency: FlatLabel(introServerCardStatusOnline) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(11px);
+	}
+}
+introServerPickLabel: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	align: align(center);
+	style: TextStyle(defaultTextStyle) {
+		font: font(14px);
+	}
+}
+introServerPickTop: 16px;
+introServerDetailsHeaderSkip: 16px;
+introServerDetailsRowSkip: 10px;
+introServerDetailsSectionSkip: 16px;
+introServerDetailsLabelWidth: 120px;
+introServerDetailsLabel: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+	}
+}
+introServerDetailsSectionTitle: FlatLabel(introServerDetailsLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(12px semibold);
+	}
+}
+introServerDetailsValue: FlatLabel(defaultFlatLabel) {
+	textFg: windowActiveTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+	}
+}
+introServerDetailsDescriptionRadius: 8px;
+introServerDetailsDescriptionPadding: margins(12px, 14px, 12px, 14px);
+introServerDetailsDescriptionMinHeight: 72px;
+introServerDetailsDescriptionMaxHeight: 120px;
+introServerDetailsDescription: FlatLabel(defaultFlatLabel) {
+	minWidth: 0px;
+	textFg: windowFg;
+	align: align(topleft);
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+		lineHeight: 18px;
+	}
+}
+introServerDetailsStatusRadius: 8px;
+introServerDetailsStatusBlock: margins(12px, 14px, 12px, 14px);
+introServerDetailsStatusDotSkip: 6px;
+introServerDetailsStatusLatency: FlatLabel(introServerCardStatusLatency) {
+	align: align(right);
+}
+introServerAddIconCaption: FlatLabel(defaultFlatLabel) {
+	align: align(center);
+	textFg: windowSubTextFg;
+}
+introServerAddSectionSkip: 16px;
+introServerAddLogoSize: 64px;
+introServerAddLogoRowHeight: 64px;
+introServerAddLogoHintSkip: 12px;
+introServerAddDescriptionMinHeight: 72px;

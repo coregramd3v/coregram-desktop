@@ -443,6 +443,18 @@ PRIVATE
     boxes/about_box.h
     boxes/about_sponsored_box.cpp
     boxes/about_sponsored_box.h
+    boxes/coregram_add_server_box.cpp
+    boxes/coregram_add_server_box.h
+    boxes/coregram_connecting_box.cpp
+    boxes/coregram_connecting_box.h
+    boxes/coregram_server_details_box.cpp
+    boxes/coregram_server_details_box.h
+    boxes/coregram_servers_box.cpp
+    boxes/coregram_servers_box.h
+    coregram/coregram_servers.cpp
+    coregram/coregram_servers.h
+    coregram/coregram_wallet.cpp
+    coregram/coregram_wallet.h
     boxes/abstract_box.cpp
     boxes/abstract_box.h
     boxes/add_contact_box.cpp
@@ -688,6 +700,8 @@ PRIVATE
     core/core_settings.cpp
     core/core_settings.h
     core/core_settings_proxy.cpp
+    coregram/coregram_visual.cpp
+    coregram/coregram_visual.h
     core/core_settings_proxy.h
     core/crash_report_window.cpp
     core/crash_report_window.h
@@ -1419,6 +1433,8 @@ PRIVATE
     intro/intro_qr.h
     intro/intro_signup.cpp
     intro/intro_signup.h
+    intro/intro_server_select.cpp
+    intro/intro_server_select.h
     intro/intro_step.cpp
     intro/intro_step.h
     intro/intro_widget.cpp

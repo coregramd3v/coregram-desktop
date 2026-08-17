@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "main/main_account.h"
 #include "main/main_domain.h"
+#include "coregram/coregram_servers.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/wrap/padding_wrap.h"
 #include "ui/widgets/labels.h"
@@ -212,7 +213,7 @@ mtpRequestId CloudManager::packRequestId(Pack pack) const {
 		: _langPackBaseRequestId;
 }
 
-void CloudManager::requestLangPackDifference(Pack pack) {
+void CloudManager::requestLangPackDifference(Pack pack, bool force) {
 	if (!_api) {
 		return;
 	}
@@ -221,7 +222,7 @@ void CloudManager::requestLangPackDifference(Pack pack) {
 		return;
 	}
 
-	const auto version = _langpack.version(pack);
+	const auto version = force ? 0 : _langpack.version(pack);
 	const auto code = _langpack.cloudLangCode(pack);
 	if (code.isEmpty()) {
 		return;
@@ -271,6 +272,9 @@ void CloudManager::setSuggestedLanguage(const QString &langCode) {
 }
 
 void CloudManager::setCurrentVersions(int version, int baseVersion) {
+	if (!CoreGram::ShouldUseCloudLangPack()) {
+		return;
+	}
 	const auto check = [&](Pack pack, int version) {
 		if (version > _langpack.version(pack) && !packRequestId(pack)) {
 			requestLangPackDifference(pack);
@@ -284,7 +288,7 @@ void CloudManager::applyLangPackDifference(
 		const MTPLangPackDifference &difference) {
 	Expects(difference.type() == mtpc_langPackDifference);
 
-	if (_langpack.isCustom()) {
+	if (_langpack.isCustom() || !CoreGram::ShouldUseCloudLangPack()) {
 		return;
 	}
 

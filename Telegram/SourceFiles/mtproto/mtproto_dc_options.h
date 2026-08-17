@@ -84,6 +84,11 @@ public:
 	void addFromList(const MTPVector<MTPDcOption> &options);
 	void addFromOther(DcOptions &&options);
 
+	void setBuiltInPublicKeys();
+	void setPublicKeysFromPem(const QString &pem);
+	void setOptionsLocked(bool locked);
+	[[nodiscard]] bool optionsLocked() const;
+
 	[[nodiscard]] std::vector<DcId> configEnumDcIds() const;
 
 	struct Variants {

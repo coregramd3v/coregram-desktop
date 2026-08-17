@@ -12,6 +12,7 @@
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 #include "ayu/ui/settings/settings_main.h"
+#include "boxes/coregram_servers_box.h"
 #include "boxes/peer_list_box.h"
 #include "core/application.h"
 #include "data/data_user.h"
@@ -669,6 +670,19 @@ void BuildOther(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_DisableAds(),
 		.getter = &AyuSettings::disableAds,
 		.setter = &AyuSettings::setDisableAds,
+	});
+
+	const auto controller = builder.controller();
+	builder.addButton({
+		.id = u"coregram/servers"_q,
+		.title = rpl::single(u"Servers"_q),
+		.st = &st::settingsButtonNoIcon,
+		.onClick = [=] {
+			if (controller) {
+				controller->show(Box<CoreGramServersBox>(
+					&controller->session().account()));
+			}
+		},
 	});
 }
 

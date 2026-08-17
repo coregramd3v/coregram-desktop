@@ -600,10 +600,18 @@ void BuildPremiumSection(SectionBuilder &builder) {
 }
 
 void BuildHelpSection(SectionBuilder &builder) {
+	const auto controller = builder.controller();
+	const auto session = builder.session();
+
+	// The Telegram help links (FAQ / Features / Ask a Question) only make sense
+	// for accounts on the official Telegram server; hide them on custom servers.
+	if (!::Main::Domain::AccountIsTelegram(&session->account())) {
+		return;
+	}
+
 	builder.addDivider();
 	builder.addSkip();
 
-	const auto controller = builder.controller();
 	builder.addButton({
 		.id = u"main/faq"_q,
 		.title = tr::lng_settings_faq(),
@@ -683,7 +691,7 @@ rpl::producer<QString> Main::title() {
 
 void Main::fillTopBarMenu(const Ui::Menu::MenuCallback &addAction) {
 	const auto &list = Core::App().domain().accounts();
-	if (list.size() < Core::App().domain().maxAccounts()) {
+	if (list.size() < ::Main::Domain::kMaxTotalAccounts) {
 		addAction(tr::lng_menu_add_account(tr::now), [=] {
 			Core::App().domain().addActivated(MTP::Environment{});
 		}, &st::menuIconAddAccount);

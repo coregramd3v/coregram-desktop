@@ -18,6 +18,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_user.h"
 #include "mtproto/mtproto_config.h"
 #include "mtproto/mtproto_dc_options.h"
+#include "mtproto/facade.h"
+#include "mtproto/mtp_instance.h"
+#include "coregram/coregram_servers.h"
+#include "lang/lang_keys.h"
+#include "boxes/abstract_box.h"
+#include "boxes/coregram_connecting_box.h"
+#include "ui/toast/toast.h"
 #include "storage/storage_domain.h"
 #include "storage/storage_account.h"
 #include "storage/localstorage.h"
@@ -269,29 +276,13 @@ void Domain::scheduleUpdateUnreadBadge() {
 
 not_null<Main::Account*> Domain::add(MTP::Environment environment) {
 	Expects(started());
-	Expects(_accounts.size() < kPremiumMaxAccounts);
+	Expects(_accounts.size() < kMaxTotalAccounts);
 
-	static const auto cloneConfig = [](const MTP::Config &config) {
-		return std::make_unique<MTP::Config>(config);
-	};
-	auto mainDcId = MTP::Instance::Fields::kNotSetMainDc;
-	const auto accountConfig = [&](not_null<Account*> account) {
-		mainDcId = account->mtp().mainDcId();
-		return cloneConfig(account->mtp().config());
-	};
-	auto config = [&] {
-		if (_active.current()->mtp().environment() == environment) {
-			return accountConfig(_active.current());
-		}
-		for (const auto &[index, account] : _accounts) {
-			if (account->mtp().environment() == environment) {
-				return accountConfig(account.get());
-			}
-		}
-		return (environment == MTP::Environment::Production)
-			? cloneConfig(Core::App().fallbackProductionConfig())
-			: std::make_unique<MTP::Config>(environment);
-	}();
+	// Always start the new account with a completely fresh config.
+	// fallbackProductionConfig() may have been set from a CoreGram account
+	// and would carry locked DC options / custom RSA keys.  The server
+	// selection in the intro (ApplyServerToAccount) sets up everything needed.
+	auto config = std::make_unique<MTP::Config>(environment);
 	auto index = 0;
 	while (ranges::contains(_accounts, index, &AccountWithIndex::index)) {
 		++index;
@@ -301,7 +292,6 @@ not_null<Main::Account*> Domain::add(MTP::Environment environment) {
 		.account = std::make_unique<Account>(this, _dataName, index)
 	});
 	const auto account = _accounts.back().account.get();
-	account->setMtpMainDcId(mainDcId);
 	_local->startAdded(account, std::move(config));
 	watchSession(account);
 	_accountsChanges.fire({});
@@ -326,7 +316,10 @@ void Domain::addActivated(MTP::Environment environment, bool newWindow) {
 			activate(account);
 		}
 	};
-	if (accounts().size() < maxAccounts()) {
+	// The Telegram free/premium limit (maxAccounts) only applies to Telegram
+	// accounts and is enforced when the server is chosen in the intro. Here we
+	// only respect the hard total cap so accounts of any server can be added.
+	if (accounts().size() < kMaxTotalAccounts) {
 		added(add(environment));
 	} else {
 		for (auto &[index, account] : accounts()) {
@@ -434,6 +427,12 @@ void Domain::checkForLastProductionConfig(
 	if (mtp->environment() != MTP::Environment::Production) {
 		return;
 	}
+	// Don't let a custom-server (locked DC options) account overwrite the
+	// production fallback — it would contaminate new accounts with CoreGram
+	// DC options and RSA keys, causing wrong-server logins.
+	if (mtp->dcOptions().optionsLocked()) {
+		return;
+	}
 	for (const auto &[index, other] : _accounts) {
 		if (other.get() != account
 			&& other->mtp().environment() == MTP::Environment::Production) {
@@ -446,10 +445,67 @@ void Domain::checkForLastProductionConfig(
 void Domain::maybeActivate(not_null<Main::Account*> account) {
 	if (Core::App().separateWindowFor(account)) {
 		activate(account);
+		guardServerConnection(account);
 	} else {
 		Core::App().preventOrInvoke(crl::guard(account, [=] {
 			activate(account);
+			guardServerConnection(account);
 		}));
+	}
+}
+
+void Domain::guardServerConnection(not_null<Main::Account*> account) {
+	// Only authorized accounts have a live MTP instance to wait on.
+	if (!account->sessionExists()) {
+		return;
+	}
+	auto &mtp = account->mtp();
+	if (mtp.dcstate(mtp.mainDcId()) == MTP::ConnectedState) {
+		return; // Already connected: switch instantly, no modal needed.
+	}
+	const auto server = CoreGram::CurrentServerForAccount(account);
+	const auto box = Ui::show(Box<ConnectingBox>());
+	CoreGram::WaitForServerConnection(
+		account,
+		server,
+		crl::guard(account, [=](bool ok) {
+			if (box) {
+				box->closeBox();
+			}
+			if (!ok) {
+				switchToFallbackAccount(account);
+			}
+		}));
+}
+
+void Domain::switchToFallbackAccount(not_null<Main::Account*> failed) {
+	// Prefer the official Telegram account, otherwise any connected account.
+	Main::Account *telegram = nullptr;
+	Main::Account *anyConnected = nullptr;
+	for (const auto &one : _accounts) {
+		const auto raw = one.account.get();
+		if (raw == failed.get() || !raw->sessionExists()) {
+			continue;
+		}
+		auto &mtp = raw->mtp();
+		if (mtp.dcstate(mtp.mainDcId()) != MTP::ConnectedState) {
+			continue;
+		}
+		if (!anyConnected) {
+			anyConnected = raw;
+		}
+		if (CoreGram::CurrentServerForAccount(raw).isTelegram) {
+			telegram = raw;
+			break;
+		}
+	}
+	const auto target = telegram ? telegram : anyConnected;
+	if (target) {
+		Ui::Toast::Show(
+			tr::lng_coregram_server_switched_account(tr::now));
+		activate(target);
+	} else {
+		Ui::Toast::Show(tr::lng_coregram_server_connect_failed(tr::now));
 	}
 }
 
@@ -500,10 +556,27 @@ void Domain::scheduleWriteAccounts() {
 	});
 }
 
+bool Domain::AccountIsTelegram(not_null<Account*> account) {
+	return CoreGram::CurrentServerForAccount(account).isTelegram;
+}
+
+int Domain::telegramAccountsCount() const {
+	auto result = 0;
+	for (const auto &[index, account] : _accounts) {
+		if (account->sessionExists() && AccountIsTelegram(account.get())) {
+			++result;
+		}
+	}
+	return result;
+}
+
 int Domain::maxAccounts() const {
+	// Only Telegram accounts count toward the limit, and only Telegram premium
+	// accounts raise it (custom self-hosted accounts are unlimited otherwise).
 	const auto premiumCount = ranges::count_if(accounts(), [](
 			const Main::Domain::AccountWithIndex &d) {
 		return d.account->sessionExists()
+			&& AccountIsTelegram(d.account.get())
 			&& (d.account->session().premium()
 				|| d.account->session().isTestMode());
 	});

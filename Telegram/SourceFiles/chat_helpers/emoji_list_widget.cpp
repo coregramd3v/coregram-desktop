@@ -50,6 +50,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwidget.h"
 #include "core/core_settings.h"
 #include "core/application.h"
+#include "coregram/coregram_servers.h"
 #include "settings/sections/settings_premium.h"
 #include "window/window_session_controller.h"
 #include "window/window_controller.h"
@@ -1582,7 +1583,8 @@ void EmojiListWidget::fillRecent() {
 	_recent.clear();
 	_recentCustomIds.clear();
 
-	const auto &list = Core::App().settings().recentEmoji();
+	const auto scope = CoreGram::ServerScopeKeyForAccount(&session().account());
+	const auto list = Core::App().settings().recentEmojiForScope(scope);
 	_recent.reserve(std::min(int(list.size()), Core::kRecentEmojiLimit) + 1);
 	const auto test = session().isTestMode();
 	for (const auto &one : list) {
@@ -2479,10 +2481,12 @@ void EmojiListWidget::selectCustom(FileChosen data) {
 	const auto skip = (document->isPremiumEmoji() && !session().premium());
 	if (!skip && _mode == Mode::Full) {
 		auto &settings = Core::App().settings();
-		settings.incrementRecentEmoji({ RecentEmojiDocument{
+		const auto scope = CoreGram::ServerScopeKeyForAccount(
+			&document->session().account());
+		settings.incrementRecentEmojiForScope({ RecentEmojiDocument{
 			document->id,
 			document->session().isTestMode(),
-		} });
+		} }, scope);
 	}
 	_customChosen.fire(std::move(data));
 }

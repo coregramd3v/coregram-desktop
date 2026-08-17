@@ -401,7 +401,11 @@ void Controller::clearSetupEmailLock() {
 }
 
 void Controller::setupIntro(QPixmap oldContentCache) {
-	_widget.setupIntro(Intro::EnterPoint::Qr, std::move(oldContentCache));
+	// This fork has no StartWidget, so server selection is the first step both
+	// on a fresh launch and when adding another account.
+	_widget.setupIntro(
+		Intro::EnterPoint::ServerSelect,
+		std::move(oldContentCache));
 }
 
 void Controller::setupMain(

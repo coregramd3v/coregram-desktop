@@ -11,7 +11,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_builder.h"
 #include "settings/settings_common_session.h"
 #include "ui/wrap/vertical_layout.h"
-#include "ui/wrap/vertical_layout_reorder.h"
 #include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/widgets/labels.h"
@@ -28,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/vertical_list.h"
 #include "ui/unread_badge_paint.h"
 #include "ui/ui_utility.h"
+#include "coregram/coregram_servers.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
 #include "core/core_settings.h"
@@ -57,6 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_user_names.h"
 #include "api/api_user_privacy.h"
 #include "base/call_delayed.h"
+#include "base/flat_set.h"
 #include "base/options.h"
 #include "base/unixtime.h"
 #include "base/random.h"
@@ -264,13 +265,12 @@ private:
 	int _outerIndex = 0;
 
 	Ui::SlideWrap<Ui::SettingsButton> *_addAccount = nullptr;
-	base::flat_map<
-		not_null<::Main::Account*>,
-		base::unique_qptr<Ui::SettingsButton>> _watched;
+	QPointer<Ui::VerticalLayout> _inner;
+	// Accounts we've attached a session-change listener to. Buttons themselves are
+	// owned by the inner layout and recreated on every rebuild().
+	base::flat_set<not_null<::Main::Account*>> _watched;
 
 	base::unique_qptr<Ui::PopupMenu> _contextMenu;
-	std::unique_ptr<Ui::VerticalLayoutReorder> _reorder;
-	int _reordering = 0;
 
 	rpl::event_stream<> _closeRequests;
 
@@ -956,7 +956,7 @@ void AccountsList::setup() {
 			return false;
 		};
 		for (auto i = _watched.begin(); i != _watched.end();) {
-			if (!exists(i->first)) {
+			if (!exists(*i)) {
 				i = _watched.erase(i);
 			} else {
 				++i;
@@ -975,9 +975,6 @@ void AccountsList::setup() {
 
 	Core::App().domain().maxAccountsChanges(
 	) | rpl::on_next([=] {
-		for (auto i = _watched.begin(); i != _watched.end(); i++) {
-			i->second = nullptr;
-		}
 		rebuild();
 	}, _outer->lifetime());
 }
@@ -1009,7 +1006,11 @@ not_null<Ui::SlideWrap<Ui::SettingsButton>*> AccountsList::setupAdd() {
 				found = true;
 			}
 		}
-		if (!found && domain.accounts().size() >= domain.maxAccounts()) {
+		// The new account's server isn't known until it's picked in the intro,
+		// so only the hard total cap blocks adding here. The Telegram free/premium
+		// limit is enforced once the user actually selects the Telegram server.
+		if (!found
+			&& domain.accounts().size() >= ::Main::Domain::kMaxTotalAccounts) {
 			_controller->show(
 				Box(AccountsLimitBox, &_controller->session()));
 		} else if (newWindow) {
@@ -1053,59 +1054,59 @@ not_null<Ui::SlideWrap<Ui::SettingsButton>*> AccountsList::setupAdd() {
 }
 
 void AccountsList::rebuild() {
-	const auto inner = _outer->insert(
-		_outerIndex,
-		object_ptr<Ui::VerticalLayout>(_outer.get()));
+	// Reuse a single inner layout and clear its contents each rebuild. Buttons are
+	// owned solely by the inner now (not by _watched), so clear() is safe. Accounts
+	// are grouped under a per-server header; reordering is disabled because manual
+	// order would conflict with server grouping.
+	if (!_inner) {
+		_inner = _outer->insert(
+			_outerIndex,
+			object_ptr<Ui::VerticalLayout>(_outer.get()));
+	} else {
+		_inner->clear();
+	}
+	const auto inner = _inner.data();
 
-	_reorder = std::make_unique<Ui::VerticalLayoutReorder>(inner);
-	_reorder->updates(
-	) | rpl::on_next([=](Ui::VerticalLayoutReorder::Single data) {
-		using State = Ui::VerticalLayoutReorder::State;
-		if (data.state == State::Started) {
-			++_reordering;
-		} else {
-			Ui::PostponeCall(inner, [=] {
-				--_reordering;
-			});
-			if (data.state == State::Applied) {
-				std::vector<uint64> order;
-				order.reserve(inner->count());
-				for (auto i = 0; i < inner->count(); i++) {
-					for (const auto &[account, button] : _watched) {
-						if (button.get() == inner->widgetAt(i)) {
-							order.push_back(account->session().uniqueId());
-						}
-					}
-				}
-				Core::App().settings().setAccountsOrder(order);
-				Core::App().saveSettings();
-			}
-		}
-	}, inner->lifetime());
-
-	const auto premiumLimit = _controller->session().domain().maxAccounts();
 	const auto list = _controller->session().domain().orderedAccounts();
-	for (const auto &account : list) {
-		auto i = _watched.find(account);
-		Assert(i != _watched.end());
 
-		auto &button = i->second;
-		if (!account->sessionExists() || list.size() == 1) {
-			button = nullptr;
-		} else if (!button) {
-			const auto nextIsLocked = (inner->count() >= premiumLimit);
-			auto callback = [=](Qt::KeyboardModifiers modifiers) {
-				if (_reordering) {
-					return;
+	// Pair each authorized account with its server, then group by server.
+	auto withServers = std::vector<
+		std::pair<not_null<::Main::Account*>, CoreGram::Server>>();
+	withServers.reserve(list.size());
+	for (const auto &account : list) {
+		if (account->sessionExists()) {
+			withServers.emplace_back(
+				account,
+				CoreGram::CurrentServerForAccount(account));
+		}
+	}
+	// Show the grouped list only when there's more than one account.
+	if (withServers.size() > 1) {
+		std::stable_sort(
+			withServers.begin(),
+			withServers.end(),
+			[](const auto &a, const auto &b) {
+				if (a.second.isTelegram != b.second.isTelegram) {
+					return a.second.isTelegram; // Telegram group first.
 				}
+				return a.second.name < b.second.name;
+			});
+		auto lastServerId = QString();
+		for (const auto &pair : withServers) {
+			const auto account = pair.first;
+			const auto &server = pair.second;
+			if (server.id != lastServerId) {
+				lastServerId = server.id;
+				Ui::AddSubsectionTitle(inner, rpl::single(server.name));
+			}
+			auto callback = [=](Qt::KeyboardModifiers modifiers) {
 				if (account == &_controller->session().account()) {
 					_closeRequests.fire({});
 					return;
 				}
 				const auto newWindow = (modifiers & Qt::ControlModifier);
-				auto activate = [=, guard = _accountSwitchGuard.make_guard()]{
+				auto activate = [=, guard = _accountSwitchGuard.make_guard()] {
 					if (guard) {
-						_reorder->finishReordering();
 						if (newWindow) {
 							_closeRequests.fire({});
 							Core::App().ensureSeparateWindowFor(account);
@@ -1124,27 +1125,19 @@ void AccountsList::rebuild() {
 						std::move(activate));
 				}
 			};
-			button.reset(inner->add(MakeAccountButton(
+			inner->add(MakeAccountButton(
 				inner,
 				_controller,
 				account,
 				std::move(callback),
-				nextIsLocked)));
+				false));
 		}
 	}
 	inner->resizeToWidth(_outer->width());
 
-	const auto count = int(list.size());
-
-	_reorder->addPinnedInterval(
-		premiumLimit,
-		std::max(1, count - premiumLimit));
-
 	_addAccount->toggle(
-		(count < ::Main::Domain::kPremiumMaxAccounts),
+		(int(list.size()) < ::Main::Domain::kMaxTotalAccounts),
 		anim::type::instant);
-
-	_reorder->start();
 }
 
 void BuildInformationSection(SectionBuilder &builder) {

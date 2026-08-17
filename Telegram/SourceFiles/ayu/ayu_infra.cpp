@@ -31,7 +31,9 @@ void initLang() {
 		return;
 	}
 	AyuLanguage::init();
-	AyuLanguage::currentInstance()->fetchLanguage(id, baseId);
+	// CoreGram: fetchLanguage тянет переводы с cdn.jsdelivr.net (недоступен из РФ)
+	// и виснет ДО создания окна → процесс уходит в фон без окна. Отключено.
+	// AyuLanguage::currentInstance()->fetchLanguage(id, baseId);
 }
 
 void initUiSettings() {
@@ -63,7 +65,9 @@ void initTranslator() {
 void initIcon() {
 #ifdef Q_OS_WIN
 	AyuAssets::loadAppIco();
-	reloadAppIconFromTaskBar();
+	// CoreGram: reloadAppIconFromTaskBar обходит ярлыки таскбара/Пуска через COM
+	// и виснет → окно не создаётся (процесс в фоне). Отключено.
+	// reloadAppIconFromTaskBar();
 #endif
 }
 

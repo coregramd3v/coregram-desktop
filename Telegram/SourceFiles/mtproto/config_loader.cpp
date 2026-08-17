@@ -116,6 +116,16 @@ void ConfigLoader::enumerate() {
 }
 
 void ConfigLoader::refreshSpecialLoader() {
+	// For CoreGram accounts (locked DC options), bootstrapping via Telegram's
+	// special CDN/DNS endpoints makes no sense — we use a fixed static server.
+	// For Telegram accounts, keep the special loader enabled so the client can
+	// discover alternative DC addresses (important in regions where standard
+	// Telegram IPs have high latency or are partially blocked).
+	if (_instance->dcOptions().optionsLocked()) {
+		_specialLoader.reset();
+		return;
+	}
+
 	if (_proxyEnabled || _instance->isKeysDestroyer()) {
 		_specialLoader.reset();
 		return;

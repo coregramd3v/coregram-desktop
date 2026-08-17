@@ -29,37 +29,38 @@ struct BuiltInDc {
 };
 
 const BuiltInDc kBuiltInDcs[] = {
-	{ 1, "2.26.123.219", 2398 },
-	{ 2, "2.26.123.219", 2398 },
-	{ 3, "2.26.123.219", 2398 },
-	{ 4, "2.26.123.219", 2398 },
-	{ 5, "2.26.123.219", 2398 },
+	{ 1, "149.154.175.50" , 443 },
+	{ 2, "149.154.167.51" , 443 },
+	{ 2, "95.161.76.100"  , 443 },
+	{ 3, "149.154.175.100", 443 },
+	{ 4, "149.154.167.91" , 443 },
+	{ 5, "149.154.171.5"  , 443 },
 };
 
 const BuiltInDc kBuiltInDcsTest[] = {
-	{ 1, "2.26.123.219", 2398 },
-	{ 2, "2.26.123.219", 2398 },
-	{ 3, "2.26.123.219", 2398 },
+	{ 1, "149.154.175.10", 443 },
+	{ 2, "149.154.167.40", 443 },
+	{ 3, "149.154.175.117", 443 },
 };
 
 const char *kTestPublicRSAKeys[] = { "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEAuQLDNa3ih8ilS6RaOJrGuEguXkgucpMHTws7LyxQ1jtidE1CGkcd\n\
-sk1Euzn9XzjDuFpHsdvdwveGl/Jfs/0Jx6zGJWRqUcbUtCAuhvZb6xALoav3sBQq\n\
-e8XgrLWIaPXMB0O1ahJdRDYKmlOH8OaOSTig7T5MhGTt7TykARnLc+uAOTtW+BlG\n\
-AdkevnxljvmyK8zikqJVB4wtHGmLnmWkIQF2sMjv+o5kETdbpgxk2UShsc2wC4uh\n\
-XpdGOfPGUGWYxBZwcplhqVyV49j3sN8L0ztYcIkOWUq3LvlUnWZO6VdGinT8+fmx\n\
-irCmvhltmNdeG9Ww/CDrTahhLXNjcNxp7wIDAQAB\n\
+MIIBCgKCAQEAyMEdY1aR+sCR3ZSJrtztKTKqigvO/vBfqACJLZtS7QMgCGXJ6XIR\n\
+yy7mx66W0/sOFa7/1mAZtEoIokDP3ShoqF4fVNb6XeqgQfaUHd8wJpDWHcR2OFwv\n\
+plUUI1PLTktZ9uW2WE23b+ixNwJjJGwBDJPQEQFBE+vfmH0JP503wr5INS1poWg/\n\
+j25sIWeYPHYeOrFp/eXaqhISP6G+q2IeTaWTXpwZj4LzXq5YOpk4bYEQ6mvRq7D1\n\
+aHWfYmlEGepfaYR8Q0YqvvhYtMte3ITnuSJs171+GDqpdKcSwHnd6FudwGO4pcCO\n\
+j4WcDuXc2CTHgH8gFTNhp/Y8/SpDOhvn9QIDAQAB\n\
 -----END RSA PUBLIC KEY-----" };
 
 const char *kPublicRSAKeys[] = { "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEAuQLDNa3ih8ilS6RaOJrGuEguXkgucpMHTws7LyxQ1jtidE1CGkcd\n\
-sk1Euzn9XzjDuFpHsdvdwveGl/Jfs/0Jx6zGJWRqUcbUtCAuhvZb6xALoav3sBQq\n\
-e8XgrLWIaPXMB0O1ahJdRDYKmlOH8OaOSTig7T5MhGTt7TykARnLc+uAOTtW+BlG\n\
-AdkevnxljvmyK8zikqJVB4wtHGmLnmWkIQF2sMjv+o5kETdbpgxk2UShsc2wC4uh\n\
-XpdGOfPGUGWYxBZwcplhqVyV49j3sN8L0ztYcIkOWUq3LvlUnWZO6VdGinT8+fmx\n\
-irCmvhltmNdeG9Ww/CDrTahhLXNjcNxp7wIDAQAB\n\
+MIIBCgKCAQEA6LszBcC1LGzyr992NzE0ieY+BSaOW622Aa9Bd4ZHLl+TuFQ4lo4g\n\
+5nKaMBwK/BIb9xUfg0Q29/2mgIR6Zr9krM7HjuIcCzFvDtr+L0GQjae9H0pRB2OO\n\
+62cECs5HKhT5DZ98K33vmWiLowc621dQuwKWSQKjWf50XYFw42h21P2KXUGyp2y/\n\
++aEyZ+uVgLLQbRA1dEjSDZ2iGRy12Mk5gpYc397aYp438fsJoHIgJ2lgMv5h7WY9\n\
+t6N/byY9Nw9p21Og3AoXSL2q/2IJ1WRUhebgAdGVMlV1fkuOQoEzR7EdpqtQD9Cs\n\
+5+bfo3Nhmcyvk5ftB0WkJ9z6bNZ7yxrP8wIDAQAB\n\
 -----END RSA PUBLIC KEY-----" };
 
 } // namespace
@@ -125,9 +126,15 @@ bool DcOptions::ValidateSecret(bytes::const_span secret) {
 }
 
 void DcOptions::readBuiltInPublicKeys() {
+	// Оба набора разной длины, а gsl::make_span держит размер в типе — тернарный
+	// оператор на таких span'ах не выводит общий тип. Берём динамический extent.
 	const auto builtin = (_environment == Environment::Test)
-		? gsl::make_span(kTestPublicRSAKeys)
-		: gsl::make_span(kPublicRSAKeys);
+		? gsl::span<const char *const>(
+			kTestPublicRSAKeys,
+			std::size(kTestPublicRSAKeys))
+		: gsl::span<const char *const>(
+			kPublicRSAKeys,
+			std::size(kPublicRSAKeys));
 	for (const auto key : builtin) {
 		const auto keyBytes = bytes::make_span(key, strlen(key));
 		auto parsed = RSAPublicKey(keyBytes);
@@ -138,6 +145,38 @@ void DcOptions::readBuiltInPublicKeys() {
 			LOG((key));
 		}
 	}
+}
+
+void DcOptions::setBuiltInPublicKeys() {
+	WriteLocker lock(this);
+	_publicKeys.clear();
+	readBuiltInPublicKeys();
+}
+
+void DcOptions::setPublicKeysFromPem(const QString &pem) {
+	WriteLocker lock(this);
+	_publicKeys.clear();
+	const auto trimmed = pem.trimmed();
+	if (trimmed.isEmpty()) {
+		return;
+	}
+	const auto utf8 = trimmed.toUtf8();
+	auto parsed = RSAPublicKey(bytes::make_span(utf8));
+	if (parsed.valid()) {
+		_publicKeys.emplace(parsed.fingerprint(), std::move(parsed));
+		return;
+	}
+	LOG(("MTP Error: could not read custom public RSA key."));
+}
+
+void DcOptions::setOptionsLocked(bool locked) {
+	WriteLocker lock(this);
+	_immutable = locked;
+}
+
+bool DcOptions::optionsLocked() const {
+	ReadLocker lock(this);
+	return _immutable;
 }
 
 Environment DcOptions::environment() const {
@@ -158,7 +197,9 @@ void DcOptions::constructFromBuiltIn() {
 		? gsl::make_span(kBuiltInDcsTest)
 		: gsl::make_span(kBuiltInDcs).subspan(0);
 	for (const auto &entry : list) {
-		const auto flags = Flag::f_static | Flag::f_tcpo_only;
+		// Production Telegram DCs speak plain MTProto too; forcing obfuscated-only
+		// here made the client spin on reconnects before the window even appeared.
+		const auto flags = Flag::f_static;
 		applyOneGuarded(entry.id, flags, entry.ip, entry.port, {});
 		DEBUG_LOG(("MTP Info: adding built in DC %1 connect option: %2:%3"
 			).arg(entry.id

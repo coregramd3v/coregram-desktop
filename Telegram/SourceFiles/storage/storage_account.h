@@ -51,6 +51,12 @@ using FileKey = quint64;
 
 enum class StartResult : uchar;
 
+struct CoreServerSelection {
+	QString id;
+	QString host;
+	int port = 0;
+};
+
 struct MessageDraft {
 	FullReplyTo reply;
 	SuggestOptions suggest;
@@ -86,6 +92,19 @@ public:
 	void writeSessionSettings();
 	void writeMtpData();
 	void writeMtpConfig();
+
+	void writeCoreServer(
+		const QString &id,
+		const QString &host,
+		int port);
+	[[nodiscard]] std::optional<CoreServerSelection> readCoreServer() const;
+	[[nodiscard]] QString coreServerFallbackPath() const;
+	void writeCoreServerFallback(
+		const QString &id,
+		const QString &host,
+		int port);
+	[[nodiscard]] auto readCoreServerFallback() const
+		-> std::optional<CoreServerSelection>;
 
 	void registerDraftSource(
 		not_null<History*> history,

@@ -93,7 +93,19 @@ namespace {
 [[nodiscard]] MTP::ProxyData CoreGramDefaultProxy() {
 	auto proxy = MTP::ProxyData();
 	proxy.type = MTP::ProxyData::Type::Mtproto;
+	// DNS-only сабдомен резолвится прямо на origin (минуя Cloudflare) — CF не
+	// проксирует сырой MTProto. Fake-TLS SNI (в секрете ниже) остаётся un1quedev.lol.
 	proxy.host = u"cdn.un1quedev.lol"_q;
+	proxy.port = 2053;
+	proxy.password
+		= u"eee892bf3633ebc6b042db24940285d5a263646e2e756e317175656465762e6c6f6c"_q;
+	return proxy;
+}
+
+[[nodiscard]] MTP::ProxyData CoreGramServerProxy() {
+	auto proxy = MTP::ProxyData();
+	proxy.type = MTP::ProxyData::Type::Mtproto;
+	proxy.host = u"2.26.123.219"_q;
 	proxy.port = 443;
 	proxy.password
 		= u"eef046f7666491c563142f024bd2c82c3c63646e2e756e317175656465762e6c6f6c"_q;
@@ -159,18 +171,50 @@ QByteArray SettingsProxy::serialize() const {
 }
 
 void SettingsProxy::ensureDefaultProxy() {
-	if (!_list.empty() || _settings == MTP::ProxyData::Settings::Disabled) {
+	// Enabled out of the box so the client works in RU without a VPN: the
+	// bundled proxy fronts the production Telegram DCs over fake-TLS on 993,
+	// so DPI sees an ordinary HTTPS session. Users can still switch it off.
+	if (!_list.empty()) {
 		return;
 	}
+	// Запись добавляем всегда, когда список пуст: раньше выход по
+	// Settings::Disabled приводил к тому, что один раз отключив прокси,
+	// пользователь больше никогда не получал его обратно в списке.
 	const auto proxy = CoreGramDefaultProxy();
 	_list.push_back(proxy);
-	_selected = proxy;
-	_settings = MTP::ProxyData::Settings::Enabled;
+	if (_settings != MTP::ProxyData::Settings::Disabled) {
+		_selected = proxy;
+		_settings = MTP::ProxyData::Settings::Enabled;
+	}
+	LOG(("Proxy Info: bundled proxy %1:%2 added to the list."
+		).arg(proxy.host
+		).arg(proxy.port));
+}
+
+void SettingsProxy::ensureCoreGramServerProxy() {
+	const auto proxy = CoreGramServerProxy();
+	for (const auto &existing : _list) {
+		if (existing.type == proxy.type
+			&& existing.host == proxy.host
+			&& existing.port == proxy.port) {
+			return;
+		}
+	}
+	// Seeded into the list but never selected or enabled. The faketls :443
+	// relay forces the padded-intermediate transport, which breaks fresh
+	// login the same way it did on iOS (fix 8b801e5), so fresh installs must
+	// keep connecting directly to the CoreGram DC on :2398. The proxy stays
+	// available for the user to switch on manually in Connection settings.
+	_list.push_back(proxy);
+	LOG(("Proxy Info: CoreGram faketls proxy %1:%2 seeded (not selected)."
+		).arg(proxy.host
+		).arg(proxy.port));
 }
 
 bool SettingsProxy::setFromSerialized(const QByteArray &serialized) {
 	if (serialized.isEmpty()) {
 		ensureDefaultProxy();
+		ensureCoreGramServerProxy();
 		return true;
 	}
 
@@ -249,6 +293,7 @@ bool SettingsProxy::setFromSerialized(const QByteArray &serialized) {
 	setProxyRotationPreferredIndices(std::move(preferredIndices));
 
 	ensureDefaultProxy();
+	ensureCoreGramServerProxy();
 
 	return true;
 }
