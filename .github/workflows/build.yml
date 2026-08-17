@@ -77,22 +77,57 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Cache built libraries
+      # Кэш восстанавливаем и сохраняем РАЗДЕЛЬНО, а не одним actions/cache.
+      #
+      # Сборка библиотек под Windows не укладывается в шестичасовой лимит job'а.
+      # При отмене по лимиту post-шаги пропускаются, поэтому единый actions/cache
+      # не сохранял ничего: следующий запуск начинал с нуля и снова упирался в
+      # шесть часов — так сборка не могла завершиться никогда.
+      #
+      # Теперь каждый запуск сохраняет то, что успел собрать, под своим ключом, а
+      # следующий подхватывает самый свежий слепок по префиксу и продолжает с
+      # того же места. За два-три запуска библиотеки дособираются и дальше
+      # берутся из кэша целиком.
+      - name: Restore built libraries
         id: libcache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: Libraries
-          key: win-x64-libs-${{ hashFiles('tdesktop/Telegram/build/prepare/prepare.py', 'tdesktop/Telegram/build/prepare/win.bat') }}
+          key: win-x64-libs-${{ hashFiles('tdesktop/Telegram/build/prepare/prepare.py', 'tdesktop/Telegram/build/prepare/win.bat') }}-${{ github.run_id }}
+          restore-keys: |
+            win-x64-libs-${{ hashFiles('tdesktop/Telegram/build/prepare/prepare.py', 'tdesktop/Telegram/build/prepare/win.bat') }}-
       - name: Prepare libraries
-        if: steps.libcache.outputs.cache-hit != 'true'
+        id: prepare
+        if: steps.libcache.outputs.cache-matched-key == ''
         working-directory: tdesktop
         shell: cmd
+        # Лимит меньше job'а (6 ч): шаг обязан завершиться сам, чтобы успел
+        # отработать следующий за ним save кэша.
+        timeout-minutes: 300
+        continue-on-error: true
         # libvpx собирает ассемблерные объекты параллельно и иногда роняет
         # линковку сам себе (LNK1136 / make Error 2 без единой ошибки
         # компиляции). Сборка инкрементальная, поэтому повтор продолжает с того
         # места, где упало, и со второй попытки обычно проходит.
         run: |
           call Telegram\build\prepare\win.bat || call Telegram\build\prepare\win.bat || call Telegram\build\prepare\win.bat
+      # Сохраняем всегда — в том числе когда подготовка не доехала до конца.
+      # Именно недособранный слепок и нужен следующему запуску.
+      - name: Save built libraries
+        if: always() && steps.libcache.outputs.cache-matched-key == ''
+        uses: actions/cache/save@v4
+        with:
+          path: Libraries
+          key: win-x64-libs-${{ hashFiles('tdesktop/Telegram/build/prepare/prepare.py', 'tdesktop/Telegram/build/prepare/win.bat') }}-${{ github.run_id }}
+      # Библиотеки собрались не полностью — дальше идти незачем, но и падать
+      # незачем: прогресс сохранён, следующий запуск продолжит.
+      - name: Stop if libraries are incomplete
+        if: steps.prepare.outcome == 'failure' || steps.prepare.outcome == 'cancelled'
+        shell: pwsh
+        run: |
+          Write-Host "Библиотеки собраны частично — прогресс сохранён в кэше."
+          Write-Host "Запустите workflow ещё раз: сборка продолжится с этого места."
+          exit 1
       - name: Upload prebuilt libraries (for local builds)
         uses: actions/upload-artifact@v4
         with:
