@@ -922,6 +922,22 @@ void GiftButton::paint(QPainter &p, float64 craftProgress) {
 		const auto count = data.info.limitedCount;
 		const auto pinned = data.pinned || data.pinnedSelection;
 		const auto now = base::unixtime::now();
+		// Подарок, выведенный на блокчейн, ничем не отличался от обычного в
+		// списке: узнать, что он лежит на кошельке, можно было только открыв
+		// карточку. Помечаем прямо на плитке — и у людей, и у каналов.
+		if (const auto unique = data.info.unique.get()) {
+			if (!unique->ownerAddress.isEmpty()) {
+				return GiftBadge{
+					.text = tr::lng_gift_stars_on_blockchain(tr::now),
+					.bg1 = unique->backdrop.edgeColor,
+					.bg2 = unique->backdrop.patternColor,
+					.border = QColor(255, 255, 255, 64),
+					.fg = unique->backdrop.textColor,
+					.gradient = true,
+					.small = true,
+				};
+			}
+		}
 		const auto upcomingAuction = (data.info.auctionStartDate > 0)
 			&& (data.info.auctionStartDate > now);
 		if (count || pinned) {
