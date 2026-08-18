@@ -1417,21 +1417,24 @@ void MakeCraftContent(
 		crafting.editRequests
 	) | rpl::on_next([=](int index) {
 		const auto guard = base::make_weak(raw);
-		if (state->requestingIndex >= 0) {
-			state->requestingIndex = index;
-			return;
-		}
+		// Раньше здесь стоял ранний выход, когда requestingIndex уже занят.
+		// Сбрасывался он только по boxClosing, и стоило окну выбора закрыться
+		// другим путём, флаг залипал навсегда: дальше каждое нажатие «+»
+		// молча игнорировалось, и добавить второй подарок в крафт было нельзя.
 		state->requestingIndex = index;
 		const auto callback = [=](GiftForCraft chosen) {
 			auto copy = state->chosen.current();
-			if (state->requestingIndex < copy.size()) {
+			if (state->requestingIndex >= 0
+				&& state->requestingIndex < copy.size()) {
 				copy[state->requestingIndex] = chosen;
 			} else {
 				copy.push_back(chosen);
 			}
 			state->chosen = std::move(copy);
+			// Выбор сделан — слот свободен, ждать закрытия окна незачем.
+			state->requestingIndex = -1;
 		};
-		const auto first = (state->requestingIndex == 0);
+		const auto first = (index == 0);
 		ShowSelectGiftBox(
 			controller,
 			giftId,
