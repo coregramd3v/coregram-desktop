@@ -204,7 +204,7 @@ bool update() {
 					writeLog(L"Error: bad update, has Updater.exe! '" + tofname + L"' equal '" + updaterName + L"'");
 					delFolder();
 					return false;
-				} else if (equal(tofname, updateTo + L"CoreGram.exe") && exeName != L"CoreGram.exe") {
+				} else if (equal(tofname, updateTo + L"EternalGram.exe") && exeName != L"EternalGram.exe") {
 					wstring fullBinaryPath = updateTo + exeName;
 					writeLog(L"Target binary found: '" + tofname + L"', changing to '" + fullBinaryPath + L"'");
 					tofname = fullBinaryPath;
@@ -377,14 +377,14 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE prevInstance, LPWSTR cmdPara
 				exeName = args[i];
 				for (int j = 0, l = exeName.size(); j < l; ++j) {
 					if (exeName[j] == L'/' || exeName[j] == L'\\') {
-						exeName = L"CoreGram.exe";
+						exeName = L"EternalGram.exe";
 						break;
 					}
 				}
 			}
 		}
 		if (exeName.empty()) {
-			exeName = L"CoreGram.exe";
+			exeName = L"EternalGram.exe";
 		}
 		if (needupdate) writeLog(L"Need to update!");
 		if (autostart) writeLog(L"From autostart!");

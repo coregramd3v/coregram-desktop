@@ -176,7 +176,7 @@ Widget::Widget(
 		}, lifetime());
 	}
 
-	_footer->setText(QString("CoreGram Desktop v%1").arg(currentVersionText()));
+	_footer->setText(QString("EternalGram Desktop v%1").arg(currentVersionText()));
 }
 
 rpl::producer<> Widget::showSettingsRequested() const {

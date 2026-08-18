@@ -71,7 +71,7 @@ void BuildVersionInfo(SectionBuilder &builder) {
 			.widget = object_ptr<Ui::FlatLabel>(
 				ctx.container,
 				rpl::single(
-					QString("CoreGram Desktop v")
+					QString("EternalGram Desktop v")
 					+ QString::fromLatin1(AppVersionStr)),
 				st::boxTitle),
 			.align = style::al_top,
@@ -102,7 +102,7 @@ void BuildCategories(SectionBuilder &builder) {
 	builder.addSubsectionTitle(tr::ayu_CategoriesHeader());
 
 	builder.addSectionButton({
-		.title = rpl::single(QString("CoreGram")),
+		.title = rpl::single(QString("EternalGram")),
 		.targetSection = AyuGhost::Id(),
 		.icon = { &st::menuIconGroupReactions },
 	});
@@ -135,7 +135,7 @@ void BuildCategories(SectionBuilder &builder) {
 	const auto controller = builder.controller();
 	builder.addButton({
 		.id = u"coregram/market"_q,
-		.title = rpl::single(QString("CoreGram Маркет")),
+		.title = rpl::single(QString("EternalGram Маркет")),
 		.icon = { &st::menuIconPremium },
 		.onClick = [=] {
 			CoreGram::ShowMarketBox(controller);
@@ -143,7 +143,7 @@ void BuildCategories(SectionBuilder &builder) {
 	});
 	builder.addButton({
 		.id = u"coregram/search"_q,
-		.title = rpl::single(QString("Поиск в CoreGram")),
+		.title = rpl::single(QString("Поиск в EternalGram")),
 		.icon = { &st::menuIconSearch },
 		.onClick = [=] {
 			CoreGram::ShowSearchBox(controller);

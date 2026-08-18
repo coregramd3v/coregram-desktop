@@ -21,9 +21,9 @@ add_subdirectory(lib_webrtc)
 add_subdirectory(lib_webview)
 add_subdirectory(codegen)
 
-# AyuGram filters
+# EternalGram filters
 add_subdirectory(lib_icu)
-# AyuGram filters
+# EternalGram filters
 
 get_filename_component(src_loc SourceFiles REALPATH)
 get_filename_component(res_loc Resources REALPATH)
@@ -100,7 +100,7 @@ PRIVATE
     desktop-app::external_openal
     desktop-app::external_xxhash
 
-    # AyuGram filters
+    # EternalGram filters
     ayugram::lib_icu
 )
 
@@ -2283,12 +2283,12 @@ if (build_macstore)
     )
 else()
     if (CMAKE_GENERATOR STREQUAL Xcode)
-        set(bundle_identifier "lol.un1quedev.CoreGramDesktop$<$<CONFIG:Debug>:Debug>")
+        set(bundle_identifier "lol.un1quedev.EternalGramDesktop$<$<CONFIG:Debug>:Debug>")
     else()
-        set(bundle_identifier "lol.un1quedev.CoreGramDesktop")
+        set(bundle_identifier "lol.un1quedev.EternalGramDesktop")
     endif()
     set(bundle_entitlements "Telegram.entitlements")
-    set(output_name "CoreGram")
+    set(output_name "EternalGram")
 endif()
 
 if (CMAKE_GENERATOR STREQUAL Xcode)
@@ -2330,14 +2330,14 @@ PRIVATE
     TDESKTOP_API_ID=${TDESKTOP_API_ID}
     TDESKTOP_API_HASH=${TDESKTOP_API_HASH}
     G_LOG_DOMAIN="Telegram"
-    U_STATIC_IMPLEMENTATION=1 # AyuGram: do not use __declspec(dllimport) when including icu headers
+    U_STATIC_IMPLEMENTATION=1 # EternalGram: do not use __declspec(dllimport) when including icu headers
 )
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if (APPLE
     OR is_multi_config
     OR NOT CMAKE_EXECUTABLE_SUFFIX STREQUAL ""
-    OR NOT "${output_name}" STREQUAL "CoreGram")
+    OR NOT "${output_name}" STREQUAL "EternalGram")
     set(output_folder ${CMAKE_BINARY_DIR})
 else()
     set(output_folder ${CMAKE_BINARY_DIR}/bin)

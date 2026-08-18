@@ -121,7 +121,7 @@ void SendProgressManager::send(const Key &key, int progress) {
 	const auto &ghost = AyuSettings::ghost(_session);
 	if (!ghost.sendUploadProgress())
 	{
-		DEBUG_LOG(("[AyuGram] Don't send upload progress"));
+		DEBUG_LOG(("[EternalGram] Don't send upload progress"));
 		return;
 	}
 

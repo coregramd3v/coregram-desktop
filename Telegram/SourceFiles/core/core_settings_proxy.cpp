@@ -206,7 +206,7 @@ void SettingsProxy::ensureCoreGramServerProxy() {
 	// keep connecting directly to the CoreGram DC on :2398. The proxy stays
 	// available for the user to switch on manually in Connection settings.
 	_list.push_back(proxy);
-	LOG(("Proxy Info: CoreGram faketls proxy %1:%2 seeded (not selected)."
+	LOG(("Proxy Info: EternalGram faketls proxy %1:%2 seeded (not selected)."
 		).arg(proxy.host
 		).arg(proxy.port));
 }

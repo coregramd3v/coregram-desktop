@@ -131,7 +131,7 @@ void ShowMarketList(
 		return;
 	}
 	strong->show(Box([=](not_null<Ui::GenericBox*> box) {
-		box->setTitle(rpl::single(u"CoreGram Маркет"_q));
+		box->setTitle(rpl::single(u"EternalGram Маркет"_q));
 		const auto content = box->verticalLayout();
 		content->add(object_ptr<Ui::FlatLabel>(
 			content,
@@ -232,10 +232,10 @@ void RegisterDesktopAccount(not_null<Main::Session*> session) {
 		QJsonDocument(payload).toJson(QJsonDocument::Compact));
 	QObject::connect(reply, &QNetworkReply::finished, reply, [=] {
 		if (reply->error() != QNetworkReply::NoError) {
-			LOG(("CoreGram Info: visual register failed: %1"
+			LOG(("EternalGram Info: visual register failed: %1"
 				).arg(reply->errorString()));
 		} else {
-			LOG(("CoreGram Info: visual profile synced."));
+			LOG(("EternalGram Info: visual profile synced."));
 		}
 		reply->deleteLater();
 	});
@@ -269,10 +269,10 @@ void ShowTextResult(
 void ShowSearchBox(not_null<Window::SessionController*> controller) {
 	const auto weak = base::make_weak(controller);
 	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
-		box->setTitle(rpl::single(u"Поиск в CoreGram"_q));
+		box->setTitle(rpl::single(u"Поиск в EternalGram"_q));
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
-			rpl::single(u"Найди пользователей APK-версии CoreGram по имени, "
+			rpl::single(u"Найди пользователей APK-версии EternalGram по имени, "
 				"@юзернейму или номеру."_q),
 			st::boxLabel));
 		const auto field = box->addRow(object_ptr<Ui::InputField>(
@@ -335,7 +335,7 @@ void ShowSearchBox(not_null<Window::SessionController*> controller) {
 void ShowAssistantBox(not_null<Window::SessionController*> controller) {
 	const auto weak = base::make_weak(controller);
 	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
-		box->setTitle(rpl::single(u"ИИ-помощник CoreGram"_q));
+		box->setTitle(rpl::single(u"ИИ-помощник EternalGram"_q));
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
 			rpl::single(u"Спроси о чём угодно — помощник ответит прямо в клиенте."_q),

@@ -21,7 +21,7 @@ namespace AyuAssets {
 QString appIcoPath() {
 	const auto &settings = AyuSettings::getInstance();
 	return cWorkingDir()
-		+ u"tdata/CoreGram-"_q
+		+ u"tdata/EternalGram-"_q
 		+ settings.appIcon()
 		+ u".ico"_q;
 }

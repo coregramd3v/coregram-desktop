@@ -18,10 +18,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #endif // TDESKTOP_ALLOW_CLOSED_ALPHA
 
 // used in Updater.cpp and Setup.iss for Windows
-constexpr auto AppId = "{7C4E8A21-3D9B-4F62-B1AE-0C5E9D7A3B14}"_cs;
-constexpr auto AppNameOld = "CoreGram for Windows"_cs;
-constexpr auto AppName = "CoreGram Desktop"_cs;
-constexpr auto AppFile = "CoreGram"_cs;
+constexpr auto AppId = "{303FEDA4-0695-4369-8A46-ADD85B268627}"_cs;
+constexpr auto AppNameOld = "EternalGram for Windows"_cs;
+constexpr auto AppName = "EternalGram Desktop"_cs;
+constexpr auto AppFile = "EternalGram"_cs;
 constexpr auto AppVersion = 1000000;
 constexpr auto AppVersionStr = "1.0b";
 constexpr auto AppBetaVersion = true;

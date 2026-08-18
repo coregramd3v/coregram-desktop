@@ -52,7 +52,7 @@ rpl::producer<TextWithEntities> Text() {
 } // namespace
 
 void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controller) {
-	box->setTitle(rpl::single(u"CoreGram Desktop"_q));
+	box->setTitle(rpl::single(u"EternalGram Desktop"_q));
 
 	auto layout = box->verticalLayout();
 
@@ -87,7 +87,7 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 
 	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 	box->addLeftButton(
-		rpl::single(QString("@CoreGramReleases")),
+		rpl::single(QString("@EternalGramReleases")),
 		[box, controller]
 		{
 			box->closeBox();

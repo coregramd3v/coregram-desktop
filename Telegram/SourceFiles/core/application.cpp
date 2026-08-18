@@ -1388,7 +1388,7 @@ bool Application::openInternalUrl(const QString &url, QVariant context) {
 }
 
 QString Application::changelogLink() const {
-	return u"https://github.com/AyuGram/AyuGramDesktop/releases"_q;
+	return u"https://github.com/coregramd3v/coregram-desktop/releases"_q;
 }
 
 bool Application::openCustomUrl(
@@ -2097,7 +2097,7 @@ void Application::RegisterUrlScheme() {
 		.arguments = arguments,
 		.protocol = u"tg"_q,
 		.protocolName = u"Telegram Link"_q,
-		.shortAppName = u"CoreGram"_q,
+		.shortAppName = u"EternalGram"_q,
 		.longAppName = QCoreApplication::applicationName(),
 		.displayAppName = AppName.utf16(),
 		.displayAppDescription = AppName.utf16(),
@@ -2121,7 +2121,7 @@ void Application::RegisterUrlScheme() {
 		.executable = Platform::ExecutablePathForShortcuts(),
 		.arguments = arguments,
 		.protocol = u"cgrm"_q,
-		.protocolName = u"CoreGram Link"_q,
+		.protocolName = u"EternalGram Link"_q,
 		.shortAppName = u"tdesktop"_q,
 		.longAppName = QCoreApplication::applicationName(),
 		.displayAppName = AppName.utf16(),

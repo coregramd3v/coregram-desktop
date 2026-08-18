@@ -3746,7 +3746,7 @@ void HistoryItem::setAyuHint(const QString &hint) {
 		history()->owner().requestItemViewRefresh(this);
 		history()->owner().requestItemResize(this);
 	} catch (...) {
-		DEBUG_LOG(("AyuGram: crash in setting hint"));
+		DEBUG_LOG(("EternalGram: crash in setting hint"));
 	}
 }
 

@@ -1,9 +1,9 @@
-#define MyAppShortName "AyuGram"
-#define MyAppName "AyuGram Desktop"
-#define MyAppPublisher "Radolyn Labs"
-#define MyAppURL "https://github.com/AyuGram"
-#define MyAppExeName "AyuGram.exe"
-#define MyAppId "53F49750-6209-4FBF-9CA8-7A333C87D666"
+#define MyAppShortName "EternalGram"
+#define MyAppName "EternalGram Desktop"
+#define MyAppPublisher "2CORE"
+#define MyAppURL "https://github.com/coregramd3v/coregram-desktop"
+#define MyAppExeName "EternalGram.exe"
+#define MyAppId "25DBDBC8-7D4A-4B73-BF15-67CA119CD2A9"
 #define CurrentYear GetDateTimeString('yyyy','','')
 
 [Setup]
@@ -38,17 +38,17 @@ SignTool=sha256
 
 #if MyBuildTarget == "winarm"
   ArchitecturesAllowed="arm64"
-  OutputBaseFilename=tsetup-arm64.{#MyAppVersionFull}
+  OutputBaseFilename=eternalgramsetup-arm64.{#MyAppVersionFull}
   #define ArchModulesFolder "arm64"
   AppVerName={#MyAppName} {#MyAppVersion} arm64
 #elif MyBuildTarget == "win64"
   ArchitecturesAllowed="x64compatible"
   ArchitecturesInstallIn64BitMode="x64compatible"
-  OutputBaseFilename=ayusetup-x64.{#MyAppVersionFull}
+  OutputBaseFilename=eternalgramsetup-x64.{#MyAppVersionFull}
   #define ArchModulesFolder "x64"
   AppVerName={#MyAppName} {#MyAppVersion} 64bit
 #else
-  OutputBaseFilename=ayusetup.{#MyAppVersionFull}
+  OutputBaseFilename=eternalgramsetup.{#MyAppVersionFull}
   #define ArchModulesFolder "x86"
   AppVerName={#MyAppName} {#MyAppVersion} 32bit
 #endif

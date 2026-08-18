@@ -404,7 +404,7 @@ MainMenu::MainMenu(
 	parentResized();
 
 	_telegram->setMarkedText(tr::link(
-		u"CoreGram Desktop"_q,
+		u"EternalGram Desktop"_q,
 		u"https://ayugram.one"_q));
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
