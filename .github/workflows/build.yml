@@ -96,9 +96,22 @@ jobs:
           key: win-x64-libs-${{ hashFiles('tdesktop/Telegram/build/prepare/prepare.py', 'tdesktop/Telegram/build/prepare/win.bat') }}-${{ github.run_id }}
           restore-keys: |
             win-x64-libs-${{ hashFiles('tdesktop/Telegram/build/prepare/prepare.py', 'tdesktop/Telegram/build/prepare/win.bat') }}-
+      # Слепок в кэше почти всегда НЕПОЛНЫЙ: подготовка не укладывается в лимит
+      # и сохраняется как есть. Поэтому «кэш нашёлся» ещё не значит «библиотеки
+      # готовы» — признаком готовности служит маркер, который кладётся только
+      # после успешной подготовки. Без него запуск пропускал подготовку на
+      # первом же частичном слепке и падал на Configure: «Neither Qt6 nor Qt5
+      # is found».
+      - name: Check libraries completeness
+        id: libs
+        shell: pwsh
+        run: |
+          $done = Test-Path "Libraries\.coregram-libs-complete"
+          Write-Host "Библиотеки готовы: $done"
+          Add-Content $env:GITHUB_OUTPUT "complete=$($done.ToString().ToLower())"
       - name: Prepare libraries
         id: prepare
-        if: steps.libcache.outputs.cache-matched-key == ''
+        if: steps.libs.outputs.complete != 'true'
         working-directory: tdesktop
         shell: cmd
         # Лимит меньше job'а (6 ч): шаг обязан завершиться сам, чтобы успел
@@ -111,10 +124,16 @@ jobs:
         # места, где упало, и со второй попытки обычно проходит.
         run: |
           call Telegram\build\prepare\win.bat || call Telegram\build\prepare\win.bat || call Telegram\build\prepare\win.bat
+      # Подготовка дошла до конца — помечаем слепок готовым, чтобы следующие
+      # запуски брали его целиком и сразу шли собирать клиент.
+      - name: Mark libraries complete
+        if: steps.prepare.outcome == 'success'
+        shell: pwsh
+        run: New-Item -ItemType File -Force -Path "Libraries\.coregram-libs-complete" | Out-Null
       # Сохраняем всегда — в том числе когда подготовка не доехала до конца.
       # Именно недособранный слепок и нужен следующему запуску.
       - name: Save built libraries
-        if: always() && steps.libcache.outputs.cache-matched-key == ''
+        if: always() && steps.libs.outputs.complete != 'true'
         uses: actions/cache/save@v4
         with:
           path: Libraries
