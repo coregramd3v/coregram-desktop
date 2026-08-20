@@ -1915,6 +1915,25 @@ const std::vector<LocalUrlHandler> &InternalUrlHandlers() {
 	return QString();
 }
 
+// Хост self-hosted сервера, в который открыт хотя бы один аккаунт. Нужен для
+// t.me-ссылок: их присылают отовсюду (подарки, каналы, приглашения), а человек,
+// сидящий на своём сервере, ждёт, что они откроются здесь же. Раньше такие
+// ссылки уходили в официальный Telegram и упирались в «войдите в Telegram».
+[[nodiscard]] QString CoreGramFallbackHost() {
+	if (!Core::IsAppLaunched()) {
+		return QString();
+	}
+	for (const auto account : Core::App().domain().orderedAccounts()) {
+		if (!account->sessionExists()) {
+			continue;
+		}
+		if (const auto host = CoreGramAccountHost(account); !host.isEmpty()) {
+			return host;
+		}
+	}
+	return QString();
+}
+
 QString TryConvertUrlToLocal(QString url) {
 	if (url.size() > 8192) {
 		url = url.mid(0, 8192);
@@ -1954,6 +1973,17 @@ QString TryConvertUrlToLocal(QString url) {
 			+ u"/(.+)$"_q;
 		if (const auto m = regex_match(pattern, url, matchOptions)) {
 			return u"cgrm://"_q + coreHost + u"/"_q + m->captured(3);
+		}
+	}
+
+	// t.me и его синонимы, когда человек сидит на своём сервере: ссылка ведёт
+	// не в официальный Telegram, а в тот же аккаунт, из которого её открыли.
+	// Иначе любая присланная t.me-ссылка (подарок, канал, приглашение)
+	// заканчивалась предложением залогиниться в Telegram и смотреть там.
+	if (const auto fallbackHost = CoreGramFallbackHost(); !fallbackHost.isEmpty()) {
+		const auto official = u"^(https?://)?(www\\.)?(telegram\\.(me|dog)|t\\.me)/(.+)$"_q;
+		if (const auto m = regex_match(official, url, matchOptions)) {
+			return u"cgrm://"_q + fallbackHost + u"/"_q + m->captured(5);
 		}
 	}
 
