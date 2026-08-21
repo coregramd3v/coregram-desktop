@@ -57,7 +57,7 @@ QString WalletAddress(uint64 userId) {
 QString WalletExplorerUrl(const QString &address) {
 	return address.isEmpty()
 		? QString()
-		: (u"https://un1quedev.lol/wallet/"_q + address);
+		: (u"https://coregram.live/wallet/"_q + address);
 }
 
 } // namespace CoreGram

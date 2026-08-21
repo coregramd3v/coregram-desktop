@@ -50,7 +50,7 @@ QNetworkAccessManager &Network() {
 QString VisualApiBase() {
 	// Домен за Cloudflare: HTTP редиректится на HTTPS, поэтому ходим сразу по
 	// https, иначе QNetworkAccessManager словит 301.
-	return u"https://un1quedev.lol"_q;
+	return u"https://coregram.live"_q;
 }
 
 namespace {
